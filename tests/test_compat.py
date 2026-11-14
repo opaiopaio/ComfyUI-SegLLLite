@@ -152,6 +152,7 @@ anima.apply_lllite = fake_apply_lllite
 anima.resolve_weights_path = lambda name: "/fake/" + name
 anima.load_module = lambda force=False: object()
 anima.cond_in_channels = lambda name: 3
+anima.is_lllite_file = lambda name: True   # 本段只测 wrapper，文件类型校验另测
 
 w = ls.LLLiteSEGSWrapper(
     lllite_name="pose.safetensors",
@@ -235,6 +236,7 @@ PATCHED.clear()
 w6.doit_ipadapter("M4")
 check("4ch forwards mask", PATCHED[0]["mask"] is m, True)
 anima.cond_in_channels = lambda name: 3
+anima.is_lllite_file = lambda name: True   # 本段只测 wrapper，文件类型校验另测
 
 # --------------------------------------------------------------- nodes ------ #
 print("\n--- node classes ---")
@@ -370,6 +372,66 @@ anima._preserve_patcher_attrs(_src, _dst)
 check("自定义属性被补回", getattr(_dst, "LanPaint_cfg_BIG", None), 7.5)
 check_true("不重复覆盖已有属性", _dst.model == "inner")
 check_true("返回补回的键名", anima._preserve_patcher_attrs(_src, _src) == [])
+
+# ---------------------------------------------- LLLite 跨代 remap 逻辑 ---- #
+print("\n--- LLLite remap ---")
+import comfyui_seglllite.anima_arch as AA  # noqa: E402
+from comfyui_seglllite.seg_nodes import lllite_remap as LR  # noqa: E402
+
+check("共享 key 识别", LR.is_shared_key("lllite_conditioning1.conv1.weight"), True)
+check("block key 识别", LR.is_shared_key("lllite_dit_blocks_3_self_attn_q_proj.down.weight"), False)
+check("解析 block 索引", LR.block_index_of("lllite_dit_blocks_27_self_attn_v_proj.up.bias"), 27)
+check("共享 key 无索引", LR.block_index_of("lllite_conditioning1.conv1.weight"), None)
+
+fake_keys = [
+    f"lllite_dit_blocks_{i}_self_attn_{a}_proj.{s}"
+    for i in range(28) for a in ("k", "q", "v") for s in ("down.weight", "depth_embed")
+] + ["lllite_conditioning1.conv1.weight"]
+check("从 key 得到原始块数", LR.block_count_of_keys(fake_keys), 28)
+check("重写单个 key", LR.rewrite_key("lllite_dit_blocks_2_self_attn_q_proj.down.weight", 3),
+      "lllite_dit_blocks_3_self_attn_q_proj.down.weight")
+
+mapping = AA.get_mapping(28, 40)
+sd = {k: 1.0 for k in fake_keys}
+remapped = LR.remap_state_dict(sd, mapping)
+check("28->40 后最大块索引", LR.block_count_of_keys(remapped.keys()), 40)
+check("原 index 2 -> 3", "lllite_dit_blocks_3_self_attn_q_proj.down.weight" in remapped, True)
+check("conditioning 未被改写", "lllite_conditioning1.conv1.weight" in remapped, True)
+check("条目数守恒（keys only）", len(remapped), len(sd))
+
+extended = LR.extend_state_dict(sd, mapping, 1.0)
+check("extend 增加条目", len(extended) > len(remapped), True)
+inserted = AA.inserted_sources(mapping, 40)
+missing_ins = [i for i in inserted if not any(k.startswith(f"lllite_dit_blocks_{i}_") for k in extended)]
+check("每个插入块都有权重", missing_ins, [])
+
+check("反向不支持（40->28）", AA.get_mapping(40, 28), None)
+
+class _Dm:
+    def __init__(self, n): self.blocks = [0] * n
+class _Inner:
+    def __init__(self, n): self.diffusion_model = _Dm(n)
+class _Patcher:
+    def __init__(self, n): self.model = _Inner(n)
+
+check("从模型探测 40 块", LR.detect_model_block_count(_Patcher(40)), 40)
+check("从模型探测 28 块", LR.detect_model_block_count(_Patcher(28)), 28)
+check("None 模型", LR.detect_model_block_count(None), None)
+
+# 文件类型校验（LLLite vs 普通 LoRA）
+_orig_meta = anima.read_metadata
+anima.read_metadata = lambda name: {}
+check("无 lllite 元数据 -> 不是 LLLite", anima.is_lllite_file("pose_lora.safetensors"), False)
+anima.read_metadata = lambda name: {"lllite.version": "2"}
+check("有 lllite.version -> 是 LLLite", anima.is_lllite_file("real.safetensors"), True)
+anima.read_metadata = _orig_meta
+
+check("remap 节点已注册", "LLLiteApplySEGSRemap" in LR.NODE_CLASS_MAPPINGS, True)
+_it = LR.LLLiteApplySEGSRemap.INPUT_TYPES()
+check_true("remap 节点含 remap 选项",
+           all(k in _it["required"] for k in
+               ("enable_remap", "target_model", "source_model", "remap_mode", "extend_strength")))
+check("extend 模式名", LR.REMAP_MODES[1].startswith("Extend"), True)
 
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")

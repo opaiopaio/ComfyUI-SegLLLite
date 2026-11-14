@@ -273,6 +273,17 @@ def cond_in_channels(lllite_name: str) -> int:
         return 3
 
 
+def is_lllite_file(lllite_name: str) -> bool:
+    """True when the file carries ControlNet-LLLite v2 metadata.
+
+    Guard against the silent no-op: a plain LoRA (or a traditional ControlNet)
+    passed here used to load zero matching keys and simply do nothing, which
+    looks like "the control had no effect" with no error anywhere.
+    """
+    meta = read_metadata(lllite_name)
+    return bool(meta) and str(meta.get("lllite.version", "")).strip() != ""
+
+
 def is_available() -> bool:
     return find_nodes_file() is not None
 
@@ -289,5 +300,6 @@ __all__ = [
     "resolve_weights_path",
     "read_metadata",
     "cond_in_channels",
+    "is_lllite_file",
     "is_available",
 ]

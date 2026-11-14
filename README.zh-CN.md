@@ -26,6 +26,7 @@ Impact Pack 的 Detailer 会把每个检测区域**裁剪出来单独采样**；
 | 节点 | 作用 | 依赖 |
 |---|---|---|
 | **应用 LLLite（SEGS 分区）** | 给每个 SEG 挂 LLLite；提示图来源可选 `image`（本块裁剪）/ `pose`（对本块跑 SEGS 预处理器）/ `control_image`（从全局控制图裁块）；支持链式叠加 | torch（ComfyUI 自带）+ Anima-LLLite |
+| **应用 LLLite（SEGS 分区 · 跨代重映射）** | 同上，**外加跨代 block 重映射**：28 层 LLLite 也能驱动 40 层（Anima 2.9B）/ 52 层（3.8B）模型 | torch + Anima-LLLite |
 | **清除 LLLite（SEGS）** | 清空 SEGS 链上的 wrapper | torch |
 | **LLLite 提示图预览（SEGS）** | 预览每块实际会拿到的提示图 | torch |
 | **SAM2 + GroundingDINO 分区** | 文本提示 → 框（GroundingDINO）→ 掩码（SAM2）；内置兼容层，**transformers ≥ 5 也能跑** | `comfyui-sam2`、`transformers` |
@@ -54,6 +55,29 @@ LoadImage ─► [SAM2 + GroundingDINO 分区]  prompt "hand"，threshold 0.3
 ```
 
 在 Detailer 之前接一个 **LLLite 提示图预览（SEGS）**，就能确认每块拿到的是自己的提示图——这正是本包的全部意义。
+
+## Anima 跨代重映射（LLLite）
+
+ControlNet-LLLite 在结构上就是一个 LoRA 家族：每块有 `lllite_dit_blocks_<N>_<atom>.down/.mid/.up`
++ 每模块的 `depth_embed`，再加一个全局共享的 `lllite_conditioning1.*`。**block 索引写在 key 里**，
+所以同一个索引在不同层数的模型上代表不同块。
+
+Anima 有 28 → 40 → 52 三种深度（插入式加深，新块插在中间）。把 28 层 LLLite 装到 40 层模型上：
+当前实现要么直接报 `depth_embed slices missing`，要么（文件里没有 `depth_embed` 时）**静默落到错误
+的块上**。**应用 LLLite（SEGS 分区 · 跨代重映射）** 会在加载前改写 key 里的 block 索引：
+
+| 选项 | 含义 |
+|---|---|
+| `enable_remap` | 关掉 = 与普通节点完全一致 |
+| `target_model` | `Auto (detect)` 从所接模型读层数；探测不准时手动指定 |
+| `source_model` | `Auto` 从 LLLite 权重 key 推断 |
+| `remap_mode` | `Keys only` 只搬索引；`Extend` 额外把源块权重复制到新插入的块 |
+| `extend_strength` | 仅 Extend：对复制的 `.up.*` 权重做缩放 |
+
+只支持单向（28→40、28→52、40→52）：老 → 新；反方向直接报错，不会只装一半。
+
+> 没有 `lllite.*` 元数据的文件会被明确拒绝。这点很重要：普通 LoRA（比如"姿势 LoRA"）当初被当
+> LLLite 加载时，**一个权重都没匹配上、等于完全没控制**，而且没有任何提示。
 
 ## 兼容矩阵
 

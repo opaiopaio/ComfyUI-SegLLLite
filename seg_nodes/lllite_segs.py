@@ -52,6 +52,7 @@ class LLLiteSEGSWrapper:
         original_size=None,
         crop_region=None,
         need_mask=False,
+        apply_fn=None,
     ):
         self.lllite_name = lllite_name
         self.strength = float(strength)
@@ -61,6 +62,8 @@ class LLLiteSEGSWrapper:
         self.preprocessor = preprocessor
         self.prev_wrapper = prev_wrapper if preserve_wrapper else None
         self.need_mask = bool(need_mask)
+        # Optional hook: LLLiteApplySEGSRemap passes a remapping loader here.
+        self.apply_fn = apply_fn
 
         # control_image mode: match the old ControlNetApply(SEGS) behaviour --
         # resize the global control image to the original image size, then cut
@@ -111,7 +114,8 @@ class LLLiteSEGSWrapper:
         if hint is None:  # apply() was not called -> nothing to do
             return model, prev_pils
 
-        patched = anima.apply_lllite(
+        apply = self.apply_fn or anima.apply_lllite
+        patched = apply(
             model,
             self.lllite_name,
             hint,
@@ -227,6 +231,8 @@ class LLLiteApplySEGS:
         # Fail early (and clearly) if Anima-LLLite is missing or the file is bad.
         if anima.resolve_weights_path(lllite_name) is None:
             raise ValueError(t("err.bad_lllite", name=lllite_name))
+        if not anima.is_lllite_file(lllite_name):
+            raise ValueError(t("err.not_lllite", name=lllite_name))
         anima.load_module()  # raises with a readable message when absent
 
         need_mask = anima.cond_in_channels(lllite_name) == 4

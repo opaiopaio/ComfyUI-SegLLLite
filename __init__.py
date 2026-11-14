@@ -29,6 +29,18 @@ try:
 except Exception as e:  # pragma: no cover
     print(f"[SegLLLite] LLLite SEGS nodes disabled: {e}")
 
+# ---- LLLite remap node (needs anima_arch tables + Anima-LLLite at runtime) -- #
+try:
+    from .seg_nodes.lllite_remap import (
+        NODE_CLASS_MAPPINGS as _R,
+        NODE_DISPLAY_NAME_MAPPINGS as _RD,
+    )
+
+    NODE_CLASS_MAPPINGS.update(_R)
+    NODE_DISPLAY_NAME_MAPPINGS.update(_RD)
+except Exception as e:  # pragma: no cover
+    print(f"[SegLLLite] LLLite remap node disabled: {e}")
+
 # ---- SAM2 + GroundingDINO: only if comfyui-sam2 is installed -------------- #
 try:
     from .seg_nodes import sam2_dino as _sd

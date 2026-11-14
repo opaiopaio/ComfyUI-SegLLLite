@@ -35,6 +35,12 @@ All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix 
   other nodes attach to the patcher. After patching we now restore any attribute the clone is
   missing, so LanPaint (and similar nodes) keep their state.
 
+- **New:** `LLLite Apply (SEGS, Remap)` — rewrites LLLite block indices so a 28-layer LLLite can
+  drive 40- (Anima 2.9B) / 52-layer (3.8B) models, with `Keys only` and `Extend` modes and manual
+  `target_model` / `source_model` overrides.
+- **Fixed:** a file without `lllite.*` metadata is now rejected with a clear error instead of
+  silently loading zero weights (which looked like "the control had no effect").
+
 ### Notes
 - MIT, zero GPL linkage (Impact Pack is duck-typed, never imported).
 - No code is copied from the GPL projects.

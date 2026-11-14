@@ -27,6 +27,7 @@ duck-typed (method names only), never imported, which keeps this package MIT.
 | Node | What it does | Needs |
 |---|---|---|
 | **LLLite Apply (SEGS)** | Attach a ControlNet-LLLite to every SEG; per-segment hint from `image` (the crop), `pose` (run a SEGS preprocessor on the crop), or `control_image` (crop from a global control image). Chainable. | torch (ships with ComfyUI) + Anima-LLLite |
+| **LLLite Apply (SEGS, Remap)** | Same as above **plus cross-generation block remapping**: a 28-layer LLLite can drive a 40-layer (Anima 2.9B) or 52-layer (3.8B) model | torch + Anima-LLLite |
 | **LLLite Clear (SEGS)** | Remove LLLite wrappers from a SEGS chain | torch |
 | **LLLite Hints (SEGS)** | Preview the hint each SEG would receive | torch |
 | **SAM2 + GroundingDINO Segment** | Text prompt → boxes (GroundingDINO) → masks (SAM2). Adds a runtime compatibility shim so it works on **transformers ≥ 5**. | `comfyui-sam2`, `transformers` |
@@ -56,6 +57,33 @@ LoadImage ─► [SAM2 + GroundingDINO Segment]  prompt "hand", threshold 0.3
 
 Use **LLLite Hints (SEGS)** anywhere upstream of the detailer to verify each segment gets its own
 hint — that is the whole point of the package.
+
+## Anima cross-generation remap (LLLite)
+
+A ControlNet-LLLite is structurally a LoRA family: per-block modules
+(`lllite_dit_blocks_<N>_<atom>.down/.mid/.up` + a per-module `depth_embed`) plus one shared
+`lllite_conditioning1.*` network. The block index is part of the weight key, so the same index
+means a different block on a model with a different depth.
+
+Anima ships as 28 → 40 → 52 block variants (depth expansions: new blocks spliced into the middle).
+Loading a 28-block LLLite onto a 40-block model therefore either fails
+(`depth_embed slices missing`) or, for files without `depth_embed`, silently lands on the wrong
+blocks. **LLLite Apply (SEGS, Remap)** rewrites the block index in the weight keys before the load:
+
+| Option | Meaning |
+|---|---|
+| `enable_remap` | Off = behave exactly like the plain node |
+| `target_model` | `Auto (detect)` reads the layer count from the connected model; override if wrong |
+| `source_model` | `Auto` reads it from the LLLite weight keys |
+| `remap_mode` | `Keys only` moves the indices; `Extend` also copies source weights onto the newly inserted blocks |
+| `extend_strength` | Extend mode only: scales the copied `.up.*` tensors |
+
+Direction is one-way (28→40, 28→52, 40→52); older-into-newer only, and a mismatch in the other
+direction raises instead of silently applying half of the control.
+
+> A file without `lllite.*` metadata is rejected with a clear error. That matters: a plain LoRA
+> (e.g. a "pose" LoRA) used to load zero matching keys and produce **no control at all**, with no
+> message anywhere.
 
 ## Compatibility
 
