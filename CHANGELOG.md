@@ -2,6 +2,25 @@
 
 All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix = patch, node key change = major.
 
+## [1.1.0] — 2026-11-14
+
+### Added
+- **Control-LoRA (pose) support inside both apply nodes.** New switch `enable_control_lora` plus
+  `control_lora_name` / `control_lora_strength` (pose) / `control_lora_lora_strength` (LoRA half) /
+  `control_lora_hint` (skeleton source) and a `vae` input. One SEG now gets LLLite redraw **and**
+  control-LoRA pose control: LLLite owns the single `model_function_wrapper` slot while the
+  control-LoRA appends a keyed `wrappers["diffusion_model"]` entry.
+- `compat/control_embedder.py`: control-embedder weight loading (cached per file), ceil-correct 2x2
+  patch packing, token projection into `x_embedder` space, and the temporary forward-hook injector.
+- `compat/control_lora.py`: the adapter's LoRA half (block-index remapping included), applied with a
+  hard error when zero keys match instead of silently sampling without it.
+- `LLLite Apply (SEGS, Remap)` remaps the control-LoRA's block indices too.
+
+### Changed
+- New inputs are appended after every previously published input, so existing workflows keep their
+  widget mapping.
+
+### Notes
 ## [1.0.0] — 2026-11-14
 
 ### Added

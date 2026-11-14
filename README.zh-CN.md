@@ -79,6 +79,27 @@ Anima 有 28 → 40 → 52 三种深度（插入式加深，新块插在中间�
 > 没有 `lllite.*` 元数据的文件会被明确拒绝。这点很重要：普通 LoRA（比如"姿势 LoRA"）当初被当
 > LLLite 加载时，**一个权重都没匹配上、等于完全没控制**，而且没有任何提示。
 
+## 同一节点里做姿态控制（control-LoRA）
+
+两个应用节点都可以额外挂一个 **control-LoRA**（Anima 姿态适配器），让同一个分区**同时**做「重绘（LLLite）+ 姿态控制」。两种机制挂在不同层，所以能共存（两个 LLLite 则不行）：
+
+- LLLite → `model_options["model_function_wrapper"]`（单槽）
+- control-LoRA → `wrappers["diffusion_model"]`（多槽，DiT forward 内部消费）
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `enable_control_lora` | 关 | 总开关 |
+| `control_lora_name` | — | `models/loras` 里的适配器文件，必须含 `control_embedder.*` |
+| `control_lora_strength` | 1.2 | 姿态信号强度（`control_embedder` 那一半） |
+| `control_lora_lora_strength` | 1.0 | 文件里 LoRA 那一半；`0` = 只用姿态 embedder |
+| `control_lora_hint` | `segs_preprocessor` | 骨架来源：SEGS 预处理器 / 全局控制图 / 与 LLLite 同一个 hint |
+
+开关打开后 `vae` 必接：骨架图要被编码成 control latent。注入通过临时的 `x_embedder` forward hook 完成（`finally` 移除），token 网格对不上时会自动 resize 并警告（奇数裁剪尺寸）。
+
+Anima 2.9B / 3.8B 请用 **应用 LLLite（SEGS 分区 · 跨代重映射）**：它会把 LoRA 那一半的 block 索引一起改写；基础节点只原样加载，匹配不上会明确报错。
+
+> 姿态适配器权重**非商用**（CircleStone NC + NVIDIA Open Model），生成图不受限。
+
 ### 什么文件能用
 
 **只支持 ControlNet-LLLite**（带 `lllite.*` 元数据、key 形如 `lllite_dit_blocks_<N>_*` 的 safetensors）。

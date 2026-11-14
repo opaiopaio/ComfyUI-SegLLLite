@@ -461,6 +461,100 @@ check("extend：40 块全有 depth_embed", sorted(_depth_ex), list(range(40)))
 # 转换器契约：每个目标模块都必须有 depth_embed，否则 Anima-LLLite 拒绝加载
 check("插入块列表长度", len(AA.inserted_sources(_m, 40)), 12)
 
+# ------------------------------------------ control-LoRA: embedder ------- #
+print("\n--- control embedder ---")
+from comfyui_seglllite.compat import control_embedder as CE  # noqa: E402
+from comfyui_seglllite.compat import control_lora as CL  # noqa: E402
+
+_lat = _torch.zeros(1, 16, 1, 8, 6)  # 奇数宽度：必须 ceil 补齐
+_packed = CE.pack_latent(_lat, 2, 1)
+check("pack: ceil 网格", tuple(_packed.shape), (1, 1, 4, 3, 64))
+check("pack: in_features = C*p*p", _packed.shape[-1], 64)
+
+_w = _torch.zeros(8, 64)
+_b = _torch.zeros(8)
+_tok = CE.control_tokens(_lat, _w, _b, spatial=2, temporal=1, strength=1.0)
+check("tokens 形状", tuple(_tok.shape), (1, 1, 4, 3, 8))
+check("strength=0 → 全零", float(CE.control_tokens(_lat, _w, _b, strength=0.0).abs().max()), 0.0)
+_tok2 = CE.control_tokens(_lat, _w, _b, target_grid=(5, 7))
+check("网格不符时 resize", tuple(_tok2.shape), (1, 1, 5, 7, 8))
+try:
+    CE.control_tokens(_lat, _torch.zeros(8, 32), _b)
+    check("特征数不符应报错", "no error", "ControlEmbedderError")
+except CE.ControlEmbedderError:
+    check("特征数不符报错", True, True)
+
+import os as _os  # noqa: E402
+import tempfile as _tf  # noqa: E402
+from safetensors.torch import save_file as _save  # noqa: E402
+
+_d = _tf.mkdtemp(prefix="ctrl_emb_")
+_p = _os.path.join(_d, "fake_control.safetensors")
+_save({
+    "diffusion_model.control_embedder.proj.weight": _torch.zeros(2048, 64),
+    "diffusion_model.control_embedder.proj.bias": _torch.zeros(2048),
+    "diffusion_model.blocks.0.x.lora_A.weight": _torch.zeros(4, 8),
+}, _p)
+_w2, _b2 = CE.load_embedder(_p)
+check("加载 embedder 权重", tuple(_w2.shape), (2048, 64))
+check("缓存命中（同一对象）", CE.load_embedder(_p)[0] is _w2, True)
+check("has_embedder=True", CE.has_embedder(_p), True)
+_p2 = _os.path.join(_d, "plain_lora.safetensors")
+_save({"diffusion_model.blocks.0.x.lora_A.weight": _torch.zeros(4, 8)}, _p2)
+check("普通 LoRA → has_embedder False", CE.has_embedder(_p2), False)
+try:
+    CE.load_embedder(_p2)
+    check("缺 control_embedder 应报错", "no error", "ControlEmbedderError")
+except CE.ControlEmbedderError:
+    check("缺 control_embedder 报错", True, True)
+
+# ------------------------------------------ control-LoRA: LoRA 半部 ------ #
+print("\n--- control-LoRA: LoRA 半部 ---")
+_keys = [
+    "diffusion_model.blocks.3.adaln_modulation_mlp.1.lora_A.weight",
+    "diffusion_model.llm_adapter.x",
+    "diffusion_model.control_embedder.proj.weight",
+]
+_sd = {k: _torch.zeros(2, 2) for k in _keys}
+check("lora_part 剔除 embedder",
+      "diffusion_model.control_embedder.proj.weight" in CL.lora_part(_sd), False)
+check("block 索引解析", CL.block_index_of(_keys[0]), 3)
+check("llm_adapter 无块索引", CL.block_index_of(_keys[1]), None)
+check("块数推断", CL.block_count_of_keys(_keys), 4)
+
+_map = AA.get_mapping(28, 40)
+_rem, _moved = CL.remap_lora_state_dict(
+    {"diffusion_model.blocks.2.a.lora_A.weight": _torch.zeros(1, 1)}, _map)
+check("28→40 块索引 2→3", "diffusion_model.blocks.3.a.lora_A.weight" in _rem, True)
+check("moved 计数", _moved, 1)
+
+# ------------------------------------------ 节点参数顺序（兼容）--------- #
+print("\n--- 节点参数顺序（旧工作流兼容）---")
+_OLD7 = ["segs", "lllite_name", "strength", "start_percent", "end_percent",
+         "hint_mode", "preserve_wrapper"]
+_CTRL = ["enable_control_lora", "control_lora_name", "control_lora_strength",
+         "control_lora_lora_strength", "control_lora_hint"]
+
+_it = ls.LLLiteApplySEGS.INPUT_TYPES()
+check("基础节点前 7 个参数不变", list(_it["required"])[:7], _OLD7)
+check("control-LoRA 追加在末尾", list(_it["required"])[7:], _CTRL)
+check("vae 在 optional", "vae" in _it["optional"], True)
+
+_itr = LR.LLLiteApplySEGSRemap.INPUT_TYPES()
+check("remap 节点前 7 个参数不变", list(_itr["required"])[:7], _OLD7)
+check("remap 参数位置不变", list(_itr["required"])[7:12],
+      ["enable_remap", "target_model", "source_model", "remap_mode", "extend_strength"])
+check("remap 节点 control-LoRA 追加在末尾", list(_itr["required"])[12:], _CTRL)
+check("remap 节点有 vae", "vae" in _itr["optional"], True)
+
+print("\n--- build_control_lora_config 校验 ---")
+try:
+    ls.build_control_lora_config(True, "x", 1.0, 1.0, "segs_preprocessor", None)
+    check("缺 vae 应报错", "no error", "ValueError")
+except ValueError:
+    check("缺 vae 报错", True, True)
+check("开关关闭时不构建", ls.build_control_lora_config(False, "x", 1, 1, "same as lllite", None), None)
+
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")
 if FAILED:

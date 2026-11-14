@@ -85,6 +85,33 @@ direction raises instead of silently applying half of the control.
 > (e.g. a "pose" LoRA) used to load zero matching keys and produce **no control at all**, with no
 > message anywhere.
 
+## Pose control in the same node (control-LoRA)
+
+Both apply nodes can additionally attach a **control-LoRA** (Anima pose adapter), so one segment gets
+"redraw (LLLite) + pose control (control-LoRA)" at the same time. The two mechanisms live in different
+places -- LLLite owns `model_options["model_function_wrapper"]` (single slot), the control-LoRA adds a
+keyed `wrappers["diffusion_model"]` entry (multi slot) -- which is why they can coexist while two
+LLLites cannot.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `enable_control_lora` | off | master switch |
+| `control_lora_name` | -- | adapter file from `models/loras`; it must contain `control_embedder.*` |
+| `control_lora_strength` | 1.2 | pose signal (the `control_embedder` half) |
+| `control_lora_lora_strength` | 1.0 | the file's LoRA half; `0` = pose embedder only |
+| `control_lora_hint` | `segs_preprocessor` | skeleton source: SEGS preprocessor / global control image / same as the LLLite hint |
+
+`vae` (optional input) becomes required when the switch is on: the skeleton is VAE-encoded into the
+control latent. The skeleton tokens are added to the DiT patch-embed output through a temporary
+`x_embedder` forward hook (removed in a `finally`), and are resized with a warning when the token grid
+does not line up (odd crop sizes).
+
+On Anima 2.9B / 3.8B use **LLLite Apply (SEGS, Remap)**: it remaps the block indices of the LoRA half
+as well. The plain node loads the LoRA half as-is and fails loudly when nothing matches.
+
+> The pose adapter weights are **non-commercial** (CircleStone NC + NVIDIA Open Model). Generated
+> images are unaffected; check the licence before commercial use.
+
 ### Which files can be used here
 
 Only **ControlNet-LLLite** files (`.safetensors` carrying `lllite.*` metadata, keys like

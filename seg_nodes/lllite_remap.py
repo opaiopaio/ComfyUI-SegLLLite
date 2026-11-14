@@ -396,10 +396,9 @@ class LLLiteApplySEGSRemap:
 
     @classmethod
     def INPUT_TYPES(cls):
-        from .lllite_segs import HINT_MODES, _controlnet_names
+        from .lllite_segs import HINT_MODES, _controlnet_names, _ctrl_lora_inputs
 
-        return {
-            "required": {
+        required = {
                 "segs": ("SEGS",),
                 "lllite_name": (_controlnet_names(),),
                 "strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.05}),
@@ -423,10 +422,15 @@ class LLLiteApplySEGSRemap:
                     {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05,
                      "tooltip": t("tip.lllite_extend")},
                 ),
-            },
+        }
+        # Appended after every published input so saved workflows keep mapping.
+        required.update(_ctrl_lora_inputs())
+        return {
+            "required": required,
             "optional": {
                 "segs_preprocessor": ("SEGS_PREPROCESSOR", {"tooltip": t("tip.seg_processor")}),
                 "control_image": ("IMAGE",),
+                "vae": ("VAE", {"tooltip": t("tip.ctrl_vae")}),
             },
         }
 
@@ -438,13 +442,22 @@ class LLLiteApplySEGSRemap:
 
     def run(self, segs, lllite_name, strength, start_percent, end_percent, hint_mode,
             preserve_wrapper, enable_remap, target_model, source_model, remap_mode,
-            extend_strength, segs_preprocessor=None, control_image=None):
-        from .lllite_segs import LLLiteSEGSWrapper
+            extend_strength, enable_control_lora=False, control_lora_name="None",
+            control_lora_strength=1.2, control_lora_lora_strength=1.0,
+            control_lora_hint="segs_preprocessor", segs_preprocessor=None,
+            control_image=None, vae=None):
+        from .lllite_segs import LLLiteSEGSWrapper, build_control_lora_config
 
         if hint_mode == "pose" and segs_preprocessor is None:
             raise ValueError(t("err.pose_needs_preprocessor"))
         if hint_mode == "control_image" and control_image is None:
             raise ValueError(t("err.control_needs_image"))
+        if enable_control_lora and control_lora_hint == "segs_preprocessor" \
+                and segs_preprocessor is None:
+            raise ValueError(t("err.ctrl_needs_preprocessor"))
+        if enable_control_lora and control_lora_hint == "control_image" \
+                and control_image is None:
+            raise ValueError(t("err.ctrl_control_image"))
         if lllite_name in (None, "", "None"):
             raise ValueError(t("err.bad_lllite", name=lllite_name))
 
@@ -471,6 +484,17 @@ class LLLiteApplySEGSRemap:
             if enable_remap
             else None
         )
+        ctrl = build_control_lora_config(
+            enable_control_lora,
+            control_lora_name,
+            control_lora_strength,
+            control_lora_lora_strength,
+            control_lora_hint,
+            vae,
+            remap=enable_remap,
+            target_choice=target_model,
+            source_choice=source_model,
+        )
 
         def factory(seg, prev):
             return LLLiteSEGSWrapper(
@@ -487,6 +511,7 @@ class LLLiteApplySEGSRemap:
                 crop_region=impact.get_seg_field(seg, "crop_region"),
                 need_mask=need_mask,
                 apply_fn=apply_fn,
+                control_lora=ctrl,
             )
 
         out = impact.apply_wrapper_to_segs(segs, factory)
