@@ -39,11 +39,11 @@ if _PKG not in sys.modules:
     _m.__path__ = [ROOT]
     sys.modules[_PKG] = _m
 
-import comfyui_lllitesegs.compat.anima_lllite as anima  # noqa: E402
-import comfyui_lllitesegs.compat.impact as impact  # noqa: E402
-import comfyui_lllitesegs.compat.transformers_shim as shim  # noqa: E402
-from comfyui_lllitesegs import i18n  # noqa: E402
-from comfyui_lllitesegs.seg_nodes import lllite_segs as ls  # noqa: E402
+import comfyui_seglllite.compat.anima_lllite as anima  # noqa: E402
+import comfyui_seglllite.compat.impact as impact  # noqa: E402
+import comfyui_seglllite.compat.transformers_shim as shim  # noqa: E402
+from comfyui_seglllite import i18n  # noqa: E402
+from comfyui_seglllite.seg_nodes import lllite_segs as ls  # noqa: E402
 
 FAILED = []
 PASSED = 0
@@ -287,7 +287,7 @@ check_true("preview ui text", "text" in res["ui"], str(res["ui"]))
 
 # --------------------------------------------------------- sam2 helpers ----- #
 print("\n--- sam2_dino helpers ---")
-from comfyui_lllitesegs.seg_nodes import sam2_dino as sd  # noqa: E402
+from comfyui_seglllite.seg_nodes import sam2_dino as sd  # noqa: E402
 
 pimg = torch.zeros(1, 32, 48, 3)
 pil = sd._batch_to_pil(pimg)
