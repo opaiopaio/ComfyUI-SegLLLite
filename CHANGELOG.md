@@ -9,6 +9,20 @@ All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix 
   variable: the registry scanner flags environment reads (`python_environment_manipulation`), and the
   override is not worth a permanent "flagged" badge. No environment variables and no FFI remain.
 
+## [1.2.2] — 2026-11-15
+
+### Added
+- `examples/quickstart_segs.json` + `examples/README.md`: the minimal graph and the external nodes it
+  needs (Impact `MaskToSEGS`, ComfyUI-Anima-LLLite), as required by the registry's node-compatibility rule.
+
+### Changed
+- README documents that the remap node temporarily swaps Anima-LLLite's `load_lllite_weights` for the
+  duration of one apply call and restores it in `finally` (nothing on disk changes).
+
+### Notes
+- Consolidated release: contains everything from 1.2.0/1.2.1 (control-LoRA support, cross-generation
+  remap, `lang.txt` language override, no environment-variable reads, no FFI).
+
 ## [1.2.0] — 2026-11-14
 
 ### Changed (breaking for saved workflows)
