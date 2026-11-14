@@ -101,6 +101,41 @@ def remap_state_dict(sd: dict, mapping: dict) -> dict:
     return out
 
 
+def fill_missing_depth_embeds(sd: dict, mapping: dict) -> dict:
+    """Give every newly inserted block a ``depth_embed`` slice.
+
+    Anima-LLLite's ``_from_saved_state_dict`` refuses to load unless **every**
+    module of the target model has a depth slice::
+
+        RuntimeError: depth_embed slices missing for module idx(es) [...]
+
+    A 28-block file remapped onto 40 blocks therefore cannot work in "keys only"
+    mode -- without this the load always fails. We copy the slice from the block
+    each new block was spliced after (``inserted_sources``), which is the same
+    approximation Extend mode uses for the LoRA weights.
+    """
+    # NOTE: build from the ORIGINAL sd. Its block indices are in the *source*
+    # numbering, which is what ``inserted_sources`` refers to -- feeding an
+    # already-remapped dict here would look up the wrong blocks and leave holes.
+    base = remap_state_dict(sd, mapping)
+    inserted = inserted_sources(mapping, max(mapping.values()) + 1)
+
+    by_source = {}
+    for key, value in sd.items():
+        if not key.endswith(".depth_embed"):
+            continue
+        idx = block_index_of(key)
+        if idx is not None:
+            by_source.setdefault(idx, []).append((key, value))
+
+    for target_idx, source_idx in inserted.items():
+        for key, value in by_source.get(source_idx, []):
+            new_key = rewrite_key(key, target_idx)
+            if new_key and new_key not in base:
+                base[new_key] = value.clone() if hasattr(value, "clone") else value
+    return base
+
+
 def extend_state_dict(sd: dict, mapping: dict, extend_strength: float = 1.0) -> dict:
     """Also synthesize weights for the newly inserted blocks.
 
@@ -225,11 +260,12 @@ def _make_loader(ctrl, mapping, extend: bool, extend_strength: float):
         sd = _load_weights_file(file)
         if mapping is not None:
             before = block_count_of_keys(sd.keys())
-            sd = (
-                extend_state_dict(sd, mapping, extend_strength)
-                if extend
-                else remap_state_dict(sd, mapping)
-            )
+            if extend:
+                sd = extend_state_dict(sd, mapping, extend_strength)
+            else:
+                # depth_embed must exist for EVERY target module, so even
+                # "keys only" has to synthesize the slices of inserted blocks.
+                sd = fill_missing_depth_embeds(sd, mapping)
             after = block_count_of_keys(sd.keys())
             print(
                 f"{LOG} LLLite remap: {before} -> {after} blocks"
@@ -271,10 +307,30 @@ def apply_lllite_remapped(
     if target_blocks is None:  # Auto -> ask the model
         target_blocks = bucket_block_count(detect_model_block_count(model))
 
-    source_blocks = resolve_dropdown(source_choice)
-    if source_blocks is None:  # Auto -> ask the file
-        path = anima.resolve_weights_path(lllite_name)
-        source_blocks = peek_lllite_block_count(path) if path else None
+    # The file is the ground truth: a wrong source_model would silently skip the
+    # remap and then fail deep inside the loader with a confusing depth_embed error.
+    path = anima.resolve_weights_path(lllite_name)
+    file_blocks = peek_lllite_block_count(path) if path else None
+    chosen_blocks = resolve_dropdown(source_choice)
+    if file_blocks and chosen_blocks and file_blocks != chosen_blocks:
+        print(
+            f"{LOG} source_model={describe_count(chosen_blocks)} but the file is "
+            f"{describe_count(file_blocks)}; using the file"
+        )
+    source_blocks = file_blocks or chosen_blocks
+    if source_blocks is None:
+        raise ValueError(
+            f"cannot determine the generation of {lllite_name}; set source_model manually"
+        )
+
+    if target_blocks is None:
+        print(f"{LOG} could not detect the model's block count; assuming it matches the file")
+        target_blocks = source_blocks
+
+    print(
+        f"{LOG} LLLite: file={describe_count(source_blocks)}, "
+        f"model={describe_count(target_blocks)}, mode={remap_mode}"
+    )
 
     mapping = None
     if source_blocks and target_blocks and source_blocks != target_blocks:
@@ -354,11 +410,11 @@ class LLLiteApplySEGSRemap:
                 # --- remap options (mirrors LoRA Stack Apply (Anima Remap)) ---
                 "enable_remap": ("BOOLEAN", {"default": True}),
                 "target_model": (
-                    [AUTO_LABEL] + MODEL_CHOICES,
+                    MODEL_CHOICES,
                     {"default": AUTO_LABEL, "tooltip": t("tip.lllite_target")},
                 ),
                 "source_model": (
-                    [AUTO_LABEL] + MODEL_CHOICES,
+                    MODEL_CHOICES,
                     {"default": AUTO_LABEL, "tooltip": t("tip.lllite_source")},
                 ),
                 "remap_mode": (REMAP_MODES, {"default": REMAP_MODES[0]}),

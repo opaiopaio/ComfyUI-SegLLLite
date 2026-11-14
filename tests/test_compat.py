@@ -433,6 +433,34 @@ check_true("remap 节点含 remap 选项",
                ("enable_remap", "target_model", "source_model", "remap_mode", "extend_strength")))
 check("extend 模式名", LR.REMAP_MODES[1].startswith("Extend"), True)
 
+# ------------------------------ LLLite depth_embed 补全（回归）----------- #
+print("\n--- LLLite depth_embed 补全 ---")
+import torch as _torch  # noqa: E402
+
+_ATOMS = ("self_attn_k_proj", "self_attn_q_proj", "self_attn_v_proj")
+_sd28 = {}
+for _i in range(28):
+    for _a in _ATOMS:
+        for _suf in ("down.weight", "depth_embed"):
+            _sd28[f"lllite_dit_blocks_{_i}_{_a}.{_suf}"] = _torch.zeros(2, 2)
+_sd28["lllite_conditioning1.conv1.weight"] = _torch.zeros(2, 2)
+
+_m = AA.get_mapping(28, 40)
+_ko = LR.fill_missing_depth_embeds(_sd28, _m)
+_depth_blocks = {LR.block_index_of(k) for k in _ko if k.endswith(".depth_embed")}
+check("keys-only：40 块全有 depth_embed", sorted(_depth_blocks), list(range(40)))
+check("keys-only：不合成普通权重", len([k for k in _ko if k.endswith("down.weight")]), 84)
+check("keys-only：conditioning 保留", "lllite_conditioning1.conv1.weight" in _ko, True)
+check("原 sd 未被修改", len(_sd28), 169)
+
+_ex = LR.extend_state_dict(_sd28, _m, 1.0)
+check("extend：40 块全有 down.weight", len([k for k in _ex if k.endswith("down.weight")]), 120)
+_depth_ex = {LR.block_index_of(k) for k in _ex if k.endswith(".depth_embed")}
+check("extend：40 块全有 depth_embed", sorted(_depth_ex), list(range(40)))
+
+# 转换器契约：每个目标模块都必须有 depth_embed，否则 Anima-LLLite 拒绝加载
+check("插入块列表长度", len(AA.inserted_sources(_m, 40)), 12)
+
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")
 if FAILED:
