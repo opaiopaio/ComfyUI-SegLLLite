@@ -1,0 +1,10 @@
+# OPNodes · Seg has no hard Python dependencies.
+#
+# Everything heavy is imported lazily inside the nodes, so a missing optional
+# dependency only disables the affected nodes instead of breaking ComfyUI
+# startup:
+#   - torch            (ships with ComfyUI)
+#   - transformers<5    for the GroundingDINO text encoder
+#   - ComfyUI-Anima-LLLite, comfyui-sam2, comfyui-inspect-pack  (optional)
+#
+# Intentionally empty: do not add transformers/torch here.

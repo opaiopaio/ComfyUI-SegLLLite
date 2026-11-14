@@ -1,0 +1,6 @@
+﻿tests/
+.github/
+__pycache__/
+*.pyc
+.ruff_cache/
+_ping.log

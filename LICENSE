@@ -1,0 +1,45 @@
+MIT License
+
+Copyright (c) 2026 opaiopaio
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Third-party notices and design notes
+
+This package deliberately links against **no** GPL code. It re-implements the
+small Impact Pack *protocols* it needs (duck typing on method names), which
+keeps this package MIT:
+
+  - comfyui-impact-pack (GPL-3.0): only the method-name contract is used --
+    `control_net_wrapper.apply(positive, negative, image, mask=None, use_acn=False)`
+    and `control_net_wrapper.doit_ipadapter(model)`. No code is copied or imported.
+
+Optional runtime dependencies (NOT bundled, NOT in `dependencies`):
+
+  - ComfyUI-Anima-LLLite (Apache-2.0): loaded at runtime by file path, used as a
+    library to patch a MODEL with LLLite weights.
+  - comfyui-sam2 (Apache-2.0 for its GroundingDINO/ SAM2 parts): its model
+    architecture may be imported at runtime when present (read-only).
+  - comfyui-inspire-pack (GPL-3.0): only passed through as an opaque
+    `SEGS_PREPROCESSOR` object; never imported.
+
+If LLLite weights or the Anima model are third-party assets, their own licenses
+(non-commercial for Anima models) apply to those assets, not to this code.

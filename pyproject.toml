@@ -1,0 +1,19 @@
+﻿[project]
+name = "comfyui-lllitesegs"
+description = "OPNodes series: per-segment ControlNet-LLLite (SEGS) control for DiT models, so every detected region gets its own control hint, plus SAM2+GroundingDINO text-prompted segmentation with a transformers>=5 compatibility shim."
+version = "1.0.0"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+# 核心零强依赖：transformers / torch / impact-pack 等全部在节点内惰性 import，
+# 缺失时只禁用相关节点，绝不让 ComfyUI 启动失败。
+dependencies = []
+readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/opaiopaio/ComfyUI-LLLiteSEGS"
+Issues = "https://github.com/opaiopaio/ComfyUI-LLLiteSEGS/issues"
+
+[tool.comfy]
+PublisherId = "opaiopaio"
+DisplayName = "LLLite SEGS"
+Icon = ""
