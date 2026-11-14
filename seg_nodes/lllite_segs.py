@@ -282,10 +282,11 @@ def attach_control_tokens(model, cfg, hint):
 
     dit = cembedder.dit_of(model)
     spatial, temporal = cembedder._patch_sizes(dit)
-    latent = cembedder.encode_image(vae, hint)
+    # Lazy: the image is encoded once we know the grid the DiT will use, so the
+    # skeleton keeps its geometry instead of being stretched by a token resize.
     provider = cembedder.token_provider(
-        latent, weight, bias, spatial=spatial, temporal=temporal,
-        strength=float(cfg.get("strength", 1.0)),
+        None, weight, bias, spatial=spatial, temporal=temporal,
+        strength=float(cfg.get("strength", 1.0)), image=hint, vae=vae,
     )
     return cembedder.attach(model, provider)
 

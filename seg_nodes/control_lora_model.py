@@ -128,14 +128,23 @@ class ControlLoRAApplyModel:
 
         # ② the pose embedder
         if float(strength) != 0.0:
-            latent = _latent_from(control_latent, image, vae)
+            # A user-supplied latent is used verbatim; an image is encoded lazily at
+            # the generation's own grid (see control_embedder.encode_for_grid).
+            latent = None
+            src_image = None
+            if control_latent is not None:
+                latent = _latent_from(control_latent, image, vae)
+            else:
+                if image is None:
+                    raise ValueError(t("err.ctrl_need_source"))
+                src_image = image
             weight, bias = cembedder.load_embedder(path)
             channels = cembedder.check_channels(patched, weight)
             dit = cembedder.dit_of(patched)
             spatial, temporal = cembedder._patch_sizes(dit)
             provider = cembedder.token_provider(
                 latent, weight, bias, spatial=spatial, temporal=temporal,
-                strength=float(strength),
+                strength=float(strength), image=src_image, vae=vae,
             )
             patched = cembedder.attach(patched, provider)
             print(

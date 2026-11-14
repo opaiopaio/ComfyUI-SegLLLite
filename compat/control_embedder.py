@@ -220,7 +220,63 @@ def encode_image(vae, image):
     return out["samples"] if isinstance(out, dict) else out
 
 
-def token_provider(latent, weight, bias, *, spatial=2, temporal=1, strength=1.0):
+def resize_image(image, w: int, h: int):
+    """Bilinear resize of a B,H,W,C IMAGE tensor."""
+    if image.dim() == 3:
+        image = image.unsqueeze(0)
+    x = image[..., :3].permute(0, 3, 1, 2)
+    x = F.interpolate(x, size=(int(h), int(w)), mode="bilinear", align_corners=False)
+    return x.permute(0, 2, 3, 1)
+
+
+def fit_image(image, w: int, h: int):
+    """Fit an IMAGE into ``w x h`` **keeping its aspect ratio**, padding with 0.
+
+    Stretching a 512x768 skeleton onto a 2048x2048 canvas squashes the figure
+    horizontally; the model then reads shifted limbs as "the pose is wrong".
+    Letterboxing keeps the anatomy and only adds black (no-pose) borders.
+    """
+    if image.dim() == 3:
+        image = image.unsqueeze(0)
+    image = image[..., :3]
+    src_h, src_w = int(image.shape[1]), int(image.shape[2])
+    if (src_w, src_h) == (w, h):
+        return image
+    scale = min(w / src_w, h / src_h)
+    new_w, new_h = max(8, int(round(src_w * scale))), max(8, int(round(src_h * scale)))
+    x = image.permute(0, 3, 1, 2)
+    x = F.interpolate(x, size=(new_h, new_w), mode="bilinear", align_corners=False)
+    top = (h - new_h) // 2
+    left = (w - new_w) // 2
+    x = F.pad(x, (left, w - new_w - left, top, h - new_h - top), value=0.0)
+    return x.permute(0, 2, 3, 1)
+
+
+def encode_for_grid(vae, image, grid, spatial: int = 2, temporal: int = 1, ratio: int = 8):
+    """Encode the control image so the latent matches ``grid`` exactly.
+
+    The image is *fitted* (letterbox, aspect preserved) to the generation's pixel
+    size before encoding. Encoding at native size and resizing the tokens
+    afterwards distorts the skeleton whenever the aspects differ, which is what a
+    "the pose came out wrong / mirrored" report usually is.
+    """
+    th, tw = int(grid[0]), int(grid[1])
+    want_h, want_w = th * spatial * ratio, tw * spatial * ratio
+    src_h, src_w = int(image.shape[1]), int(image.shape[2])
+    fitted = fit_image(image, want_w, want_h)
+    latent = encode_image(vae, fitted)
+    ok = latent.shape[-2] == th * spatial and latent.shape[-1] == tw * spatial
+    print(
+        f"{LOG} control image {src_w}x{src_h} letterboxed into {want_w}x{want_h} "
+        f"-> latent {latent.shape[-1]}x{latent.shape[-2]} (target grid {tw}x{th}, "
+        f"patch {spatial}x{spatial})"
+        + ("" if ok else "  !! latent size mismatch, falling back to token resize")
+    )
+    return latent if ok else None
+
+
+def token_provider(latent=None, weight=None, bias=None, *, spatial=2, temporal=1,
+                   strength=1.0, image=None, vae=None):
     """``x_embedder`` output -> control tokens, computed once per grid/device/dtype.
 
     Shared by the SEGS wrappers and the standalone model node so the projection
@@ -237,8 +293,14 @@ def token_provider(latent, weight, bias, *, spatial=2, temporal=1, strength=1.0)
         key = (output.shape[2], output.shape[3], str(output.device), str(output.dtype))
         tokens = cache.get(key)
         if tokens is None:
+            lat = latent
+            if lat is None:
+                # Encode lazily: only now do we know the token grid we must match.
+                lat = encode_for_grid(vae, image, key[:2], spatial, temporal)
+                if lat is None:
+                    lat = encode_image(vae, image)
             tokens = compute_from_latent(
-                latent,
+                lat,
                 weight,
                 bias,
                 spatial=spatial,
@@ -250,7 +312,7 @@ def token_provider(latent, weight, bias, *, spatial=2, temporal=1, strength=1.0)
             cache[key] = tokens
             print(
                 f"{LOG} control tokens {tuple(tokens.shape)} "
-                f"(latent {tuple(latent.shape)}, strength={float(strength):g})"
+                f"(strength={float(strength):g})"
             )
         return tokens
 
