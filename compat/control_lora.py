@@ -237,9 +237,17 @@ def apply_lora_deltas(model, sd: dict, strength: float, mapping: dict | None = N
         )
 
     patched = model.clone()
+    # clone() copies self.patches key by key (model_patcher.py:451-454), so patches
+    # from other loaders (e.g. a baked high-res LoRA loaded as a patch) survive.
+    # We report both sizes so "it overwrote my other LoRA" is verifiable.
+    before = len(getattr(model, "patches", {}) or {})
     applied = patched.add_patches(loaded, strength)
+    after = len(getattr(patched, "patches", {}) or {})
     count = len(applied) if applied is not None else len(loaded)
-    print(f"{LOG} control-LoRA: LoRA half applied to {count}/{candidates} keys (strength={strength:g})")
+    print(
+        f"{LOG} control-LoRA: LoRA half applied to {count}/{candidates} keys "
+        f"(strength={strength:g}); patched keys {before} -> {after} (existing kept, ours appended)"
+    )
     return patched, count, candidates
 
 
