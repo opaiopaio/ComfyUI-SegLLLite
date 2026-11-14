@@ -1,6 +1,6 @@
 ﻿# ComfyUI-SegLLLite
 
-> **OPNodes 系列** · 作者 欧派欧派欧（opaiopaio）· MIT
+> **OPNodes** 节点包成员 · MIT
 > 🧩 **本包**：让 Impact/LanPaint 的 **SEGS Detailer 兼容 ControlNet-LLLite** —— 每个检测区域用自己的 LLLite 提示图。另含文本提示的 SAM2+GroundingDINO 分区
 > 🎯 **姊妹包**：[ComfyUI-LoRAStackAutoTriggers](https://github.com/opaiopaio/ComfyUI-LoRAStackAutoTriggers) —— LoRA 堆叠 / 自动触发词 / Anima 跨代映射
 

@@ -1,6 +1,6 @@
 ﻿# ComfyUI-SegLLLite
 
-> **OPNodes series** · by 欧派欧派欧 (opaiopaio) · MIT
+> Part of the **OPNodes** node pack · MIT
 > 🧩 **This package**: makes Impact/LanPaint **SEGS detailers compatible with ControlNet-LLLite** — every detected region is sampled with its own LLLite hint. Also ships text-prompted SAM2+GroundingDINO segmentation
 > 🎯 **Sister package**: [ComfyUI-LoRAStackAutoTriggers](https://github.com/opaiopaio/ComfyUI-LoRAStackAutoTriggers) — LoRA stacking / auto trigger words / Anima cross-generation remap
 
