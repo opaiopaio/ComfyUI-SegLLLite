@@ -175,7 +175,10 @@ def control_tokens(
             src = F.interpolate(src, size=(th, tw), mode="nearest")
             tokens = src.reshape(b, t, d, th, tw).permute(0, 1, 3, 4, 2)
             print(
-                f"{LOG} control tokens resized {h}x{w} -> {th}x{tw} to match x_embedder"
+                f"{LOG} control tokens resized {h}x{w} -> {th}x{tw} to match x_embedder. "
+                "If the pose looks distorted, feed the skeleton as `image` (+ vae) "
+                "instead of `control_latent`: an encoded latent cannot be letterboxed, so its "
+                "aspect gets stretched right here."
             )
 
     return tokens * float(strength)

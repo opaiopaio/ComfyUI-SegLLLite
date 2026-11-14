@@ -55,10 +55,10 @@ class ControlLoRAApplyModel:
             "required": {
                 "model": ("MODEL",),
                 "control_lora_name": (_control_lora_names(), {"tooltip": t("tip.control_lora_name")}),
-                "strength": (
+                "pose_strength": (
                     "FLOAT",
                     {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05,
-                     "tooltip": t("tip.control_lora_strength")},
+                     "tooltip": t("tip.ctrl_pose_strength")},
                 ),
                 # appended after the published widgets (kept stable for workflows)
                 "lora_strength": (
@@ -89,12 +89,15 @@ class ControlLoRAApplyModel:
     CATEGORY = t("category_control")
     DESCRIPTION = t("desc.control_lora_apply_model")
 
-    def run(self, model, control_lora_name, strength, lora_strength=0.0,
+    def run(self, model, control_lora_name, pose_strength, lora_strength=0.0,
             enable_remap=True, target_model=AUTO_LABEL, source_model=AUTO_LABEL,
             control_latent=None, image=None, vae=None):
         # Both halves off is the documented baseline: hand the model back as-is.
-        if float(strength) == 0.0 and float(lora_strength) == 0.0:
-            print(f"{LOG} Control-LoRA(Anima): strength=0 and lora_strength=0, model unchanged")
+        if float(pose_strength) == 0.0 and float(lora_strength) == 0.0:
+            print(
+                f"{LOG} Control-LoRA(Anima): pose_strength=0 and lora_strength=0 "
+                "-> model returned unchanged (nothing applied)"
+            )
             return (model,)
 
         path = clora.resolve_lora_path(control_lora_name)
@@ -127,7 +130,7 @@ class ControlLoRAApplyModel:
                 raise RuntimeError(t("err.ctrl_lora_no_match", n=candidates))
 
         # ② the pose embedder
-        if float(strength) != 0.0:
+        if float(pose_strength) != 0.0:
             # A user-supplied latent is used verbatim; an image is encoded lazily at
             # the generation's own grid (see control_embedder.encode_for_grid).
             latent = None
@@ -144,12 +147,13 @@ class ControlLoRAApplyModel:
             spatial, temporal = cembedder._patch_sizes(dit)
             provider = cembedder.token_provider(
                 latent, weight, bias, spatial=spatial, temporal=temporal,
-                strength=float(strength), image=src_image, vae=vae,
+                strength=float(pose_strength), image=src_image, vae=vae,
             )
             patched = cembedder.attach(patched, provider)
             print(
                 f"{LOG} Control-LoRA(Anima): {control_lora_name} pose attached "
-                f"(channels={channels}, patch={spatial}x{spatial}, strength={float(strength):g})"
+                f"(channels={channels}, patch={spatial}x{spatial}, "
+                f"pose_strength={float(pose_strength):g}, lora_strength={float(lora_strength):g})"
             )
 
         return (patched,)

@@ -699,7 +699,7 @@ from comfyui_seglllite.seg_nodes import control_lora_model as CLM  # noqa: E402
 check("模型节点已注册", "ControlLoRAApplyModel" in CLM.NODE_CLASS_MAPPINGS, True)
 _it4 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
 check("required 参数（新参数追加在 strength 之后）", list(_it4["required"]),
-      ["model", "control_lora_name", "strength", "lora_strength",
+      ["model", "control_lora_name", "pose_strength", "lora_strength",
        "enable_remap", "target_model", "source_model"])
 check("optional 参数", list(_it4["optional"]), ["control_latent", "image", "vae"])
 check("输出是 MODEL", CLM.ControlLoRAApplyModel.RETURN_TYPES, ("MODEL",))
@@ -809,10 +809,11 @@ except RuntimeError as e:
 # 3) 模型节点：remap 参数与双开关短路
 _it5 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
 check("模型节点有 lora_strength", "lora_strength" in _it5["required"], True)
+check("姿态旋钮叫 pose_strength", "pose_strength" in _it5["required"], True)
 check("模型节点有 remap 三件套",
       all(k in _it5["required"] for k in ("enable_remap", "target_model", "source_model")), True)
 check("已有 widget 顺序未被破坏",
-      list(_it5["required"])[:3], ["model", "control_lora_name", "strength"])
+      list(_it5["required"])[:3], ["model", "control_lora_name", "pose_strength"])
 
 _p5 = _FakePatcher(_FakeDit())
 (_out5,) = _node.run(_p5, "ctrl8", 0.0, lora_strength=0.0)
