@@ -130,7 +130,7 @@ _STRINGS = {
         "hint.seg_count": "{n} 块",
         "err.no_anima_lllite": "未在 custom_nodes 中找到 ComfyUI-Anima-LLLite。",
         "err.bad_lllite": "找不到 LLLite 文件：{name}",
-        "err.not_lllite": "「{name}」不是 ControlNet-LLLite 文件（没有 lllite.* 元数据），普通 LoRA / 传统 ControlNet 不能用在这里。",
+        "err.not_lllite": "「{name}」不是 ControlNet-LLLite 文件（没有 lllite.* 元数据）。普通 LoRA、传统 ControlNet、以及 control-LoRA（例如带 control_embedder 的 Anima 姿态模型）都不能在这里用——AnimaControl 需要它自己的节点。",
         "err.remap_direction": "无法从 {src} 重映射到 {tgt}：只支持老 → 新",
         "err.pose_needs_preprocessor": "hint_mode=pose 需要连接 segs_preprocessor。",
         "err.control_needs_image": "hint_mode=control_image 需要连接 control_image。",

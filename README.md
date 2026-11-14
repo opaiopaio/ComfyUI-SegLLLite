@@ -85,6 +85,13 @@ direction raises instead of silently applying half of the control.
 > (e.g. a "pose" LoRA) used to load zero matching keys and produce **no control at all**, with no
 > message anywhere.
 
+### Which files can be used here
+
+Only **ControlNet-LLLite** files (`.safetensors` carrying `lllite.*` metadata, keys like
+`lllite_dit_blocks_<N>_*`). Plain LoRA, traditional ControlNet, and **control-LoRA** files are
+rejected with an explicit error — an Anima pose model built as a control-LoRA (`control_embedder.*`
+keys) needs its own `AnimaControlApply` node and cannot be driven from here.
+
 ## Compatibility
 
 | LLLiteSEGS | ComfyUI | Impact Pack | Anima-LLLite | transformers |

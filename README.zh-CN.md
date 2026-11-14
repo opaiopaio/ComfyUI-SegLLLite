@@ -79,6 +79,12 @@ Anima 有 28 → 40 → 52 三种深度（插入式加深，新块插在中间�
 > 没有 `lllite.*` 元数据的文件会被明确拒绝。这点很重要：普通 LoRA（比如"姿势 LoRA"）当初被当
 > LLLite 加载时，**一个权重都没匹配上、等于完全没控制**，而且没有任何提示。
 
+### 什么文件能用
+
+**只支持 ControlNet-LLLite**（带 `lllite.*` 元数据、key 形如 `lllite_dit_blocks_<N>_*` 的 safetensors）。
+普通 LoRA、传统 ControlNet、以及 **control-LoRA** 都会被明确拒绝——例如用 `control_embedder.*` 实现的
+Anima 姿态模型，它需要官方 `AnimaControlApply` 节点，不能从这里驱动。
+
 ## 兼容矩阵
 
 | LLLiteSEGS | ComfyUI | Impact Pack | Anima-LLLite | transformers |
