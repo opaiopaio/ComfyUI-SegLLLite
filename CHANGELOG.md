@@ -19,7 +19,9 @@ All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix 
   strengths at 0 return the model untouched (no clone, no hook).
 - `compat/control_embedder.py`: self-implemented control embedder (weight loading cached per file,
   ceil-correct 2x2 patch packing, token projection into `x_embedder` space, temporary forward hook).
-- `compat/control_lora.py`: the adapter LoRA half (block-index remapping included), applied with a hard
+- **Control-LoRA Extend**: the adapter's LoRA half can now be extended onto the 12 inserted blocks
+  (`remap_mode = Extend to new layers`), so a 28-layer adapter drives all 40/52 layers instead of
+  leaving a third of the model uncontrolled. `extend_strength` scales the copied output projections.- `compat/control_lora.py`: the adapter LoRA half (block-index remapping included), applied with a hard
   error when zero keys match instead of silently sampling without it.
 - Bilingual strings for every new option.
 

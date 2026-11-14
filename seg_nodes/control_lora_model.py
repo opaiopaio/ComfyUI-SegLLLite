@@ -29,6 +29,8 @@ from ..i18n import t
 
 from .lllite_segs import _control_lora_names, resolve_block_mapping
 
+REMAP_MODES = ["Keys only (recommended)", "Extend to new layers (experimental)"]
+
 LOG = "[SegLLLite]"
 
 
@@ -85,6 +87,12 @@ class ControlLoRAApplyModel:
                     {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
                      "tooltip": t("tip.pose_ramp")},
                 ),
+                "remap_mode": (REMAP_MODES, {"default": REMAP_MODES[0]}),
+                "extend_strength": (
+                    "FLOAT",
+                    {"default": 0.6, "min": 0.0, "max": 2.0, "step": 0.05,
+                     "tooltip": t("tip.lllite_extend")},
+                ),
             },
             "optional": {
                 "control_latent": ("LATENT", {"tooltip": t("tip.ctrl_latent")}),
@@ -102,6 +110,7 @@ class ControlLoRAApplyModel:
     def run(self, model, control_lora_name, pose_strength, lora_strength=0.0,
             enable_remap=True, target_model=AUTO_LABEL, source_model=AUTO_LABEL,
             pose_start_percent=0.0, pose_end_percent=1.0,
+            remap_mode=REMAP_MODES[0], extend_strength=0.6,
             control_latent=None, image=None, vae=None):
         # Both halves off is the documented baseline: hand the model back as-is.
         if float(pose_strength) == 0.0 and float(lora_strength) == 0.0:
@@ -135,7 +144,9 @@ class ControlLoRAApplyModel:
                     clora.block_count_of_keys(sd.keys()),
                 )
             patched, applied, candidates = clora.apply_lora_deltas(
-                patched, sd, float(lora_strength), mapping
+                patched, sd, float(lora_strength), mapping,
+                extend=remap_mode.startswith("Extend"),
+                extend_strength=float(extend_strength),
             )
             if applied == 0:
                 raise RuntimeError(t("err.ctrl_lora_no_match", n=candidates))

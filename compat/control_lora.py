@@ -18,7 +18,7 @@ import re
 
 import torch
 
-from ..anima_arch import describe_count
+from ..anima_arch import describe_count, inserted_sources
 from . import control_embedder
 
 LOG = "[SegLLLite]"
@@ -89,6 +89,47 @@ def load_adapter(path: str) -> dict:
         sd = load_lora_file(path)
         _ADAPTER_CACHE[stamp] = sd
     return sd
+
+
+#: output-projection halves that carry the delta magnitude
+_UP_MARKERS = (".lora_B.", ".lora_up.")
+
+
+def extend_lora_state_dict(sd: dict, mapping: dict, strength: float = 1.0) -> tuple:
+    """Remap + synthesize weights for the newly inserted blocks.
+
+    ``Keys only`` moves the 28 source blocks onto their new indices, which leaves
+    the 12 inserted blocks (of a 40-layer model) with no delta at all -- the
+    control then feels weak on 2.9B. Extend copies each inserted block's weights
+    from the block it was spliced after, exactly like the LLLite Extend mode.
+    """
+    base, moved = remap_lora_state_dict(sd, mapping)
+    inserted = inserted_sources(mapping, max(mapping.values()) + 1)
+
+    by_source = {}
+    for key, value in sd.items():
+        idx = block_index_of(key)
+        if idx is not None:
+            by_source.setdefault(idx, []).append((key, value))
+
+    added = 0
+    for target_idx, source_idx in inserted.items():
+        for key, value in by_source.get(source_idx, []):
+            new_key = remap_key(key, target_idx)
+            if not new_key or new_key in base:
+                continue
+            try:
+                if float(strength) != 1.0 and any(m in key for m in _UP_MARKERS):
+                    value = value * float(strength)
+                base[new_key] = value.clone() if hasattr(value, "clone") else value
+                added += 1
+            except Exception:
+                base[new_key] = value
+                added += 1
+    if added:
+        print(f"{LOG} control-LoRA: extended {added} keys onto inserted blocks "
+              f"(strength={float(strength):g})")
+    return base, moved
 
 
 def load_lora_file(path: str) -> dict:
@@ -206,7 +247,8 @@ def list_control_lora_files():
     return kept if probed else None
 
 
-def apply_lora_deltas(model, sd: dict, strength: float, mapping: dict | None = None):
+def apply_lora_deltas(model, sd: dict, strength: float, mapping: dict | None = None,
+                      extend: bool = False, extend_strength: float = 1.0):
     """Patch the model with the adapter's LoRA half.
 
     Returns ``(patched_model, applied, candidates)``. ``applied == 0`` is an
@@ -222,7 +264,10 @@ def apply_lora_deltas(model, sd: dict, strength: float, mapping: dict | None = N
         return model, 0, 0
 
     if mapping is not None:
-        lora_sd, moved = remap_lora_state_dict(lora_sd, mapping)
+        if extend:
+            lora_sd, moved = extend_lora_state_dict(lora_sd, mapping, extend_strength)
+        else:
+            lora_sd, moved = remap_lora_state_dict(lora_sd, mapping)
         if moved:
             print(f"{LOG} control-LoRA: remapped {moved} block-indexed keys")
 

@@ -461,6 +461,8 @@ class LLLiteApplySEGSRemap:
             start_percent=control_lora_start_percent,
             end_percent=control_lora_end_percent,
             remap=enable_remap,
+            extend=remap_mode.startswith("Extend"),
+            extend_strength=extend_strength,
             target_choice=target_model,
             source_choice=source_model,
         )

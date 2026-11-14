@@ -702,7 +702,7 @@ _it4 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
 check("required 参数（新参数追加在 strength 之后）", list(_it4["required"]),
       ["model", "control_lora_name", "pose_strength", "lora_strength",
        "enable_remap", "target_model", "source_model",
-       "pose_start_percent", "pose_end_percent"])
+       "pose_start_percent", "pose_end_percent", "remap_mode", "extend_strength"])
 check("optional 参数", list(_it4["optional"]), ["control_latent", "image", "vae"])
 check("输出是 MODEL", CLM.ControlLoRAApplyModel.RETURN_TYPES, ("MODEL",))
 
@@ -835,6 +835,31 @@ _mid = _prov_r(_fake_out, progress=40.0)     # t=0.4 -> 生效
 check("ramp: 中段生效", bool(float(_mid.abs().sum()) > 0), True)
 _prov_n = CE.token_provider(_ones, _torch.ones(8, 64), _torch.zeros(8))  # 无 ramp
 check("ramp 未设置时不受进度影响", bool(float(_prov_n(_fake_out, progress=100.0).abs().sum()) > 0), True)
+
+# ------------------------------------------ control-LoRA Extend ---------- #
+print("\n--- control-LoRA Extend（插入层补 delta）---")
+_sd_lo = {}
+for _i in range(28):
+    _sd_lo[f"diffusion_model.blocks.{_i}.x.lora_A.weight"] = _torch.ones(2, 2)
+    _sd_lo[f"diffusion_model.blocks.{_i}.x.lora_B.weight"] = _torch.ones(2, 2)
+_m28 = AA.get_mapping(28, 40)
+_ko, _moved = CL.remap_lora_state_dict(_sd_lo, _m28)
+_ex, _moved2 = CL.extend_lora_state_dict(_sd_lo, _m28, 0.6)
+check("keys-only: 28 块", len({CL.block_index_of(k) for k in _ko}), 28)
+check("extend: 覆盖 40 块", len({CL.block_index_of(k) for k in _ex}), 40)
+check("extend: 多出 12 块 × 2 key", len(_ex) - len(_ko), 24)
+_ins = sorted(AA.inserted_sources(_m28, 40).keys())
+check("extend: 每个插入块都有 key", all(
+    any(CL.block_index_of(k) == b for k in _ex) for b in _ins), True)
+# lora_B 按 strength 缩放，lora_A 不缩放
+_b = [v for k, v in _ex.items() if "lora_B" in k and CL.block_index_of(k) == _ins[0]][0]
+_a = [v for k, v in _ex.items() if "lora_A" in k and CL.block_index_of(k) == _ins[0]][0]
+check("extend: lora_B 缩放到 0.6", round(float(_b.mean()), 3), 0.6)
+check("extend: lora_A 不缩放", round(float(_a.mean()), 3), 1.0)
+
+_itm = CLM.ControlLoRAApplyModel.INPUT_TYPES()["required"]
+check("模型节点有 remap_mode", "remap_mode" in _itm, True)
+check("模型节点有 extend_strength", "extend_strength" in _itm, True)
 
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")

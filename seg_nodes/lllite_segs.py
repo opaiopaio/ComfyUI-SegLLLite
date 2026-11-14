@@ -246,7 +246,7 @@ class LLLiteSEGSWrapper:
 
 
 def apply_ctrl_lora_deltas(model, cfg):
-    """Patch the model with the adapter's LoRA half (block-remapped if asked)."""
+    """Patch the model with the adapter's LoRA half (remapped/extended if asked)."""
     sd = clora.load_adapter(cfg["path"])
     mapping = None
     if cfg.get("remap"):
@@ -258,7 +258,8 @@ def apply_ctrl_lora_deltas(model, cfg):
             source_blocks,
         )
     patched, applied, candidates = clora.apply_lora_deltas(
-        model, sd, float(cfg["lora_strength"]), mapping
+        model, sd, float(cfg["lora_strength"]), mapping,
+        extend=bool(cfg.get("extend")), extend_strength=float(cfg.get("extend_strength", 1.0)),
     )
     if applied == 0:
         raise RuntimeError(t("err.ctrl_lora_no_match", n=candidates))
@@ -432,6 +433,8 @@ def build_control_lora_config(
     start_percent=0.0,
     end_percent=1.0,
     remap=False,
+    extend=False,
+    extend_strength=1.0,
     target_choice=None,
     source_choice=None,
 ):
@@ -463,6 +466,8 @@ def build_control_lora_config(
         "vae": vae,
         "ramp": (float(start_percent), float(end_percent)),
         "remap": bool(remap),
+        "extend": bool(extend),
+        "extend_strength": float(extend_strength),
         "target_choice": target_choice,
         "source_choice": source_choice,
     }
