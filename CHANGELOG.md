@@ -10,17 +10,32 @@ All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix 
   `control_lora_hint` (skeleton source) and a `vae` input. One SEG now gets LLLite redraw **and**
   control-LoRA pose control: LLLite owns the single `model_function_wrapper` slot while the
   control-LoRA appends a keyed `wrappers["diffusion_model"]` entry.
-- `compat/control_embedder.py`: control-embedder weight loading (cached per file), ceil-correct 2x2
-  patch packing, token projection into `x_embedder` space, and the temporary forward-hook injector.
-- `compat/control_lora.py`: the adapter's LoRA half (block-index remapping included), applied with a
-  hard error when zero keys match instead of silently sampling without it.
-''s block indices too.
+- **`LLLite Apply (SEGS, Remap)`** also remaps the control-LoRA block indices.
+- **`Control-LoRA Apply (SEGS)`**: the same control-LoRA support as a standalone SEGS node (no LLLite),
+  for "pose only" passes and for chaining after an LLLite node.
+- **`Control-LoRA Apply (Anima)`**: `MODEL -> MODEL` version for plain txt2img / img2img. Applies the
+  pose embedder (`strength`) and optionally the adapter LoRA half (`lora_strength`), with
+  `enable_remap` / `target_model` / `source_model` so a 28-layer adapter works on 2.9B / 3.8B. Both
+  strengths at 0 return the model untouched (no clone, no hook).
+- `compat/control_embedder.py`: self-implemented control embedder (weight loading cached per file,
+  ceil-correct 2x2 patch packing, token projection into `x_embedder` space, temporary forward hook).
+- `compat/control_lora.py`: the adapter LoRA half (block-index remapping included), applied with a hard
+  error when zero keys match instead of silently sampling without it.
+- Bilingual strings for every new option.
 
 ### Changed
+- The `control_lora_name` dropdown lists only files that actually contain `control_embedder.*`
+  (header-only probe cached by mtime: ~5 ms for 40 LoRAs), falling back to the full LoRA list.
 - New inputs are appended after every previously published input, so existing workflows keep their
   widget mapping.
 
-### Notes
+### Fixed
+- `crop_region` was read as `(x, y, w, h)`; Impact stores `(x1, y1, x2, y2)`, which shifted and
+  stretched every `control_image` hint (and its preview).
+- Every file is written without a UTF-8 BOM (the BOM broke the `pyproject.toml` TOML parse).
+- The `x_embedder` output is asserted to be 5-D `(B, T, H, W, D)`; a clear error replaces a shape mishap.
+- Validation order: a missing Anima-LLLite package is reported before "not an LLLite file".
+
 ## [1.0.0] — 2026-11-14
 
 ### Added
