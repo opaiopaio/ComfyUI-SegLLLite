@@ -287,6 +287,7 @@ def attach_control_tokens(model, cfg, hint):
     provider = cembedder.token_provider(
         None, weight, bias, spatial=spatial, temporal=temporal,
         strength=float(cfg.get("strength", 1.0)), image=hint, vae=vae,
+        ramp=cfg.get("ramp"),
     )
     return cembedder.attach(model, provider)
 
@@ -407,6 +408,16 @@ def _ctrl_lora_inputs():
             CONTROL_HINT_MODES,
             {"default": "segs_preprocessor", "tooltip": t("tip.control_lora_hint")},
         ),
+        "control_lora_start_percent": (
+            "FLOAT",
+            {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
+             "tooltip": t("tip.pose_ramp")},
+        ),
+        "control_lora_end_percent": (
+            "FLOAT",
+            {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+             "tooltip": t("tip.pose_ramp")},
+        ),
     }
 
 
@@ -418,6 +429,8 @@ def build_control_lora_config(
     control_lora_hint,
     vae,
     *,
+    start_percent=0.0,
+    end_percent=1.0,
     remap=False,
     target_choice=None,
     source_choice=None,
@@ -448,6 +461,7 @@ def build_control_lora_config(
         "lora_strength": float(control_lora_lora_strength),
         "hint_source": control_lora_hint,
         "vae": vae,
+        "ramp": (float(start_percent), float(end_percent)),
         "remap": bool(remap),
         "target_choice": target_choice,
         "source_choice": source_choice,
@@ -513,6 +527,8 @@ class LLLiteApplySEGS:
         control_lora_strength=1.2,
         control_lora_lora_strength=1.0,
         control_lora_hint="segs_preprocessor",
+        control_lora_start_percent=0.0,
+        control_lora_end_percent=1.0,
         segs_preprocessor=None,
         control_image=None,
         vae=None,
@@ -545,6 +561,8 @@ class LLLiteApplySEGS:
             control_lora_lora_strength,
             control_lora_hint,
             vae,
+            start_percent=control_lora_start_percent,
+            end_percent=control_lora_end_percent,
         )
 
         need_mask = anima.cond_in_channels(lllite_name) == 4

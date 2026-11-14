@@ -279,15 +279,22 @@ def encode_for_grid(vae, image, grid, spatial: int = 2, temporal: int = 1, ratio
 
 
 def token_provider(latent=None, weight=None, bias=None, *, spatial=2, temporal=1,
-                   strength=1.0, image=None, vae=None):
+                   strength=1.0, image=None, vae=None, ramp=None):
     """``x_embedder`` output -> control tokens, computed once per grid/device/dtype.
 
     Shared by the SEGS wrappers and the standalone model node so the projection
     maths and its caching live in exactly one place.
+
+    ``ramp=(start, end)`` in 0..1 gates the contribution by sampling progress
+    (1 = noisiest step). A constant offset injected into the last, low-noise steps
+    keeps perturbing the model while it is refining colour/detail, which shows up
+    as residual grain and muddy tones; gating it to the first part of the run
+    avoids that.
     """
     cache = {}
+    seen = {"max": None}
 
-    def provider(output):
+    def provider(output, progress=None):
         if output.dim() != 5:
             raise RuntimeError(
                 f"{LOG} x_embedder output is {output.dim()}D (shape {tuple(output.shape)}), "
@@ -317,7 +324,23 @@ def token_provider(latent=None, weight=None, bias=None, *, spatial=2, temporal=1
                 f"{LOG} control tokens {tuple(tokens.shape)} "
                 f"(strength={float(strength):g})"
             )
-        return tokens
+
+        if ramp is None or progress is None:
+            return tokens
+        start, end = ramp
+        try:
+            value = float(progress)
+        except Exception:
+            return tokens
+        # Normalise against the noisiest step seen in THIS sampling run, so no
+        # assumption about the model's timestep scale is needed.
+        seen["max"] = value if seen["max"] is None else max(seen["max"], value)
+        if seen["max"] <= 0:
+            return tokens
+        t = min(1.0, max(0.0, value / seen["max"]))
+        if start <= t <= end:
+            return tokens
+        return tokens * 0.0
 
     return provider
 
@@ -340,8 +363,13 @@ def attach(model, tokens_provider, key: str = "seglllite_control"):
         )
 
     def wrapper(executor, *args, **kwargs):
+        # ComfyUI stores the CURRENT timestep in transformer_options["sigmas"]
+        # (samplers.py:325/512), which is what the ramp needs.
+        to = kwargs.get("transformer_options") or {}
+        progress = to.get("sigmas")
+
         def add_control(_module, _inputs, output):
-            return output + tokens_provider(output)
+            return output + tokens_provider(output, progress)
 
         handle = dit.x_embedder.register_forward_hook(add_control)
         try:

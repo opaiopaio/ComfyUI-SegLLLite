@@ -105,6 +105,16 @@ class ControlLoRAApplySEGS:
                     CONTROL_HINT_MODES,
                     {"default": "segs_preprocessor", "tooltip": t("tip.control_lora_hint")},
                 ),
+                "control_lora_start_percent": (
+                    "FLOAT",
+                    {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                     "tooltip": t("tip.pose_ramp")},
+                ),
+                "control_lora_end_percent": (
+                    "FLOAT",
+                    {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                     "tooltip": t("tip.pose_ramp")},
+                ),
                 "preserve_wrapper": ("BOOLEAN", {"default": True}),
                 "enable_remap": ("BOOLEAN", {"default": True}),
                 "target_model": (
@@ -129,7 +139,8 @@ class ControlLoRAApplySEGS:
     DESCRIPTION = t("desc.control_lora_apply")
 
     def run(self, segs, control_lora_name, vae, control_lora_strength,
-            control_lora_lora_strength, control_lora_hint, preserve_wrapper,
+            control_lora_lora_strength, control_lora_hint,
+            control_lora_start_percent, control_lora_end_percent, preserve_wrapper,
             enable_remap, target_model, source_model,
             segs_preprocessor=None, control_image=None):
         if control_lora_hint == "segs_preprocessor" and segs_preprocessor is None:
@@ -144,6 +155,8 @@ class ControlLoRAApplySEGS:
             control_lora_lora_strength,
             control_lora_hint,
             vae,
+            start_percent=control_lora_start_percent,
+            end_percent=control_lora_end_percent,
             remap=enable_remap,
             target_choice=target_model,
             source_choice=source_model,

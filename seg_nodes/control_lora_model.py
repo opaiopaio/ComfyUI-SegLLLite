@@ -75,6 +75,16 @@ class ControlLoRAApplyModel:
                     MODEL_CHOICES,
                     {"default": AUTO_LABEL, "tooltip": t("tip.lllite_source")},
                 ),
+                "pose_start_percent": (
+                    "FLOAT",
+                    {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                     "tooltip": t("tip.pose_ramp")},
+                ),
+                "pose_end_percent": (
+                    "FLOAT",
+                    {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01,
+                     "tooltip": t("tip.pose_ramp")},
+                ),
             },
             "optional": {
                 "control_latent": ("LATENT", {"tooltip": t("tip.ctrl_latent")}),
@@ -91,6 +101,7 @@ class ControlLoRAApplyModel:
 
     def run(self, model, control_lora_name, pose_strength, lora_strength=0.0,
             enable_remap=True, target_model=AUTO_LABEL, source_model=AUTO_LABEL,
+            pose_start_percent=0.0, pose_end_percent=1.0,
             control_latent=None, image=None, vae=None):
         # Both halves off is the documented baseline: hand the model back as-is.
         if float(pose_strength) == 0.0 and float(lora_strength) == 0.0:
@@ -148,6 +159,7 @@ class ControlLoRAApplyModel:
             provider = cembedder.token_provider(
                 latent, weight, bias, spatial=spatial, temporal=temporal,
                 strength=float(pose_strength), image=src_image, vae=vae,
+                ramp=(float(pose_start_percent), float(pose_end_percent)),
             )
             patched = cembedder.attach(patched, provider)
             print(

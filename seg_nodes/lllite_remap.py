@@ -410,8 +410,9 @@ class LLLiteApplySEGSRemap:
             preserve_wrapper, enable_remap, target_model, source_model, remap_mode,
             extend_strength, enable_control_lora=False, control_lora_name="None",
             control_lora_strength=1.2, control_lora_lora_strength=1.0,
-            control_lora_hint="segs_preprocessor", segs_preprocessor=None,
-            control_image=None, vae=None):
+            control_lora_hint="segs_preprocessor",
+            control_lora_start_percent=0.0, control_lora_end_percent=1.0,
+            segs_preprocessor=None, control_image=None, vae=None):
         from .lllite_segs import LLLiteSEGSWrapper, build_control_lora_config
 
         if hint_mode == "pose" and segs_preprocessor is None:
@@ -457,6 +458,8 @@ class LLLiteApplySEGSRemap:
             control_lora_lora_strength,
             control_lora_hint,
             vae,
+            start_percent=control_lora_start_percent,
+            end_percent=control_lora_end_percent,
             remap=enable_remap,
             target_choice=target_model,
             source_choice=source_model,

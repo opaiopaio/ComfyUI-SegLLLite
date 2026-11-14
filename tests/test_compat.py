@@ -537,17 +537,18 @@ _OLD7 = ["segs", "lllite_name", "strength", "start_percent", "end_percent",
          "hint_mode", "preserve_wrapper"]
 _CTRL = ["enable_control_lora", "control_lora_name", "control_lora_strength",
          "control_lora_lora_strength", "control_lora_hint"]
+_RAMP = ["control_lora_start_percent", "control_lora_end_percent"]
 
 _it = ls.LLLiteApplySEGS.INPUT_TYPES()
 check("基础节点前 7 个参数不变", list(_it["required"])[:7], _OLD7)
-check("control-LoRA 追加在末尾", list(_it["required"])[7:], _CTRL)
+check("control-LoRA 追加在末尾", list(_it["required"])[7:], _CTRL + _RAMP)
 check("vae 在 optional", "vae" in _it["optional"], True)
 
 _itr = LR.LLLiteApplySEGSRemap.INPUT_TYPES()
 check("remap 节点前 7 个参数不变", list(_itr["required"])[:7], _OLD7)
 check("remap 参数位置不变", list(_itr["required"])[7:12],
       ["enable_remap", "target_model", "source_model", "remap_mode", "extend_strength"])
-check("remap 节点 control-LoRA 追加在末尾", list(_itr["required"])[12:], _CTRL)
+check("remap 节点 control-LoRA 追加在末尾", list(_itr["required"])[12:], _CTRL + _RAMP)
 check("remap 节点有 vae", "vae" in _itr["optional"], True)
 
 print("\n--- build_control_lora_config 校验 ---")
@@ -700,7 +701,8 @@ check("模型节点已注册", "ControlLoRAApplyModel" in CLM.NODE_CLASS_MAPPING
 _it4 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
 check("required 参数（新参数追加在 strength 之后）", list(_it4["required"]),
       ["model", "control_lora_name", "pose_strength", "lora_strength",
-       "enable_remap", "target_model", "source_model"])
+       "enable_remap", "target_model", "source_model",
+       "pose_start_percent", "pose_end_percent"])
 check("optional 参数", list(_it4["optional"]), ["control_latent", "image", "vae"])
 check("输出是 MODEL", CLM.ControlLoRAApplyModel.RETURN_TYPES, ("MODEL",))
 
@@ -821,6 +823,18 @@ check("两个强度都为 0 → 原样返回", _out5 is _p5, True)
 (_out6,) = _node.run(_FakePatcher(_FakeDit()), _p3, 1.0,
                      control_latent={"samples": _torch.ones(1, 16, 1, 8, 6)})
 check("只开姿态仍可注入", "diffusion_model" in _out6.wrappers, True)
+
+# ------------------------------------------ 姿态 sigma 门限（ramp）------- #
+print("\n--- pose ramp ---")
+_ones = _torch.ones(1, 16, 1, 8, 6)
+_prov_r = CE.token_provider(_ones, _torch.ones(8, 64), _torch.zeros(8), ramp=(0.0, 0.5))
+_fake_out = _torch.zeros(1, 1, 4, 3, 8)
+_late = _prov_r(_fake_out, progress=100.0)   # t=1.0 -> 超出 0-0.5
+check("ramp: 收尾阶段被门掉", float(_late.abs().sum()), 0.0)
+_mid = _prov_r(_fake_out, progress=40.0)     # t=0.4 -> 生效
+check("ramp: 中段生效", bool(float(_mid.abs().sum()) > 0), True)
+_prov_n = CE.token_provider(_ones, _torch.ones(8, 64), _torch.zeros(8))  # 无 ramp
+check("ramp 未设置时不受进度影响", bool(float(_prov_n(_fake_out, progress=100.0).abs().sum()) > 0), True)
 
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")
