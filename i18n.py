@@ -1,13 +1,12 @@
 """ComfyUI-SegLLLite — minimal bilingual strings.
 
 Language selection (first hit wins):
-  1. env ``OPNODES_LANG`` (``zh`` / ``en``)
-  2. ``LC_ALL`` / ``LC_MESSAGES`` / ``LANG``
-  3. the system locale (``locale.getlocale()``)
-  4. ``en``
+  1. ``lang.txt`` next to this file, containing ``zh`` or ``en``
+  2. the system locale (``locale.getlocale()``)
+  3. ``en``
 
-  Language detection is read-only: it looks at an environment variable and the
-  system locale, nothing else. No FFI, no process manipulation.
+  Deliberately reads **no** environment variables and uses **no** FFI: the override
+  is a plain file so that both the behaviour and the code stay trivially reviewable.
 
 Only UI text is translated. Combo *values* are never translated: ComfyUI stores
 them inside workflow JSON, so translating them would break workflows across
@@ -35,15 +34,22 @@ def _lang_from_tag(value) -> "str | None":
     return None
 
 
+def _lang_override():
+    """Optional ``lang.txt`` next to this module (contents ``zh`` or ``en``)."""
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lang.txt")
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as fh:
+                return _lang_from_tag(fh.read())
+    except Exception:
+        pass
+    return None
+
+
 def _detect_lang() -> str:
-    forced = _lang_from_tag(os.getenv("OPNODES_LANG"))
+    forced = _lang_override()
     if forced:
         return forced
-
-    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
-        hit = _lang_from_tag(os.getenv(var))
-        if hit:
-            return hit
 
     try:
         import locale

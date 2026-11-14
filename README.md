@@ -156,8 +156,9 @@ A startup log line reports the language and which nodes registered, e.g.
 
 ## Language
 
-Titles, categories, descriptions and tooltips follow the **system language** (zh/en). Force it with
-`OPNODES_LANG=zh` (or `en`) before starting ComfyUI. Combo *values* are never translated — ComfyUI
+Titles, categories, descriptions and tooltips follow the **system locale** (zh/en). To force a
+language, drop a `lang.txt` containing `zh` or `en` next to `i18n.py` (inside the package folder) and
+restart ComfyUI. No environment variables are read. Combo *values* are never translated — ComfyUI
 stores them in workflow JSON.
 
 ## FAQ

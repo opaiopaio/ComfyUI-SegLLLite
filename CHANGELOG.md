@@ -2,6 +2,13 @@
 
 All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix = patch, node key change = major.
 
+## [1.2.1] — 2026-11-15
+
+### Changed
+- Language override is now a `lang.txt` file in the package folder instead of an environment
+  variable: the registry scanner flags environment reads (`python_environment_manipulation`), and the
+  override is not worth a permanent "flagged" badge. No environment variables and no FFI remain.
+
 ## [1.2.0] — 2026-11-14
 
 ### Changed (breaking for saved workflows)

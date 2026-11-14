@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-seglllite"
 description = "Makes Impact/LanPaint SEGS detailers work with ControlNet-LLLite: every detected region is sampled with its own LLLite control hint (its own crop, a pose map from that crop, or a crop of a global control image). Also ships text-prompted SAM2+GroundingDINO segmentation with a transformers>=5 compatibility shim."
-version = "1.2.0"
+version = "1.2.1"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 # 核心零强依赖：transformers / torch / impact-pack 等全部在节点内惰性 import，
