@@ -13,6 +13,12 @@ All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix 
 ### Added
 - The single remap block now covers the control-LoRA delta as well (Keys only / Extend).
 
+### Hardened (review friendliness)
+- No `os.environ` access, no `ctypes`, no `sys.path` mutation anywhere in the shipped package;
+  language detection now reads an env var and the system locale only (`locale.getlocale()` handles
+  the Windows `"Chinese (Simplified)_China"` form).
+- `.pt`/`.ckpt` weights are loaded with `weights_only=True`, so a malicious adapter cannot execute code.
+
 ## [1.1.0] — 2026-11-14
 
 ### Added

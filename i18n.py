@@ -2,10 +2,12 @@
 
 Language selection (first hit wins):
   1. env ``OPNODES_LANG`` (``zh`` / ``en``)
-  2. Windows UI language (via ``GetUserDefaultUILanguage``)
-  3. ``LC_ALL`` / ``LC_MESSAGES`` / ``LANG``
-  4. ``locale.getdefaultlocale()``
-  5. ``en``
+  2. ``LC_ALL`` / ``LC_MESSAGES`` / ``LANG``
+  3. the system locale (``locale.getlocale()``)
+  4. ``en``
+
+  Language detection is read-only: it looks at an environment variable and the
+  system locale, nothing else. No FFI, no process manipulation.
 
 Only UI text is translated. Combo *values* are never translated: ComfyUI stores
 them inside workflow JSON, so translating them would break workflows across
@@ -17,36 +19,38 @@ import os
 _LOG = "[SegLLLite]"
 
 
-def _detect_lang() -> str:
-    forced = (os.environ.get("OPNODES_LANG") or "").strip().lower()
-    if forced.startswith("zh"):
+def _lang_from_tag(value) -> "str | None":
+    """Map a locale tag / env value to ``zh`` / ``en`` (None when unknown).
+
+    Windows reports ``"Chinese (Simplified)_China"`` rather than ``zh_CN``, so
+    matching only on the ``zh`` prefix would miss it.
+    """
+    v = (value or "").strip().lower()
+    if not v:
+        return None
+    if v.startswith("zh") or "chinese" in v:
         return "zh"
-    if forced.startswith("en"):
+    if v.startswith("en") or "english" in v:
         return "en"
+    return None
 
-    try:  # Windows: most reliable signal
-        import ctypes
 
-        lang_id = ctypes.windll.kernel32.GetUserDefaultUILanguage()
-        if (lang_id & 0x3FF) == 0x04:  # LANG_CHINESE
-            return "zh"
-        return "en"
-    except Exception:
-        pass
+def _detect_lang() -> str:
+    forced = _lang_from_tag(os.getenv("OPNODES_LANG"))
+    if forced:
+        return forced
 
     for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
-        val = (os.environ.get(var) or "").strip().lower()
-        if val.startswith("zh"):
-            return "zh"
-        if val.startswith("en"):
-            return "en"
+        hit = _lang_from_tag(os.getenv(var))
+        if hit:
+            return hit
 
     try:
         import locale
 
-        loc = (locale.getlocale()[0] or "").lower()
-        if loc.startswith("zh"):
-            return "zh"
+        hit = _lang_from_tag(locale.getlocale()[0])
+        if hit:
+            return hit
     except Exception:
         pass
 

@@ -137,7 +137,7 @@ def load_lora_file(path: str) -> dict:
         from safetensors.torch import load_file
 
         return load_file(path)
-    return torch.load(path, map_location="cpu")
+    return control_embedder.safe_torch_load(path)
 
 
 def resolve_lora_path(name: str):

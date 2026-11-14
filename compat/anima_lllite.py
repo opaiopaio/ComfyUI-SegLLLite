@@ -17,10 +17,7 @@ So we resolve it in this order:
 
 1. reuse the module ComfyUI already imported (``sys.modules``), which is the
    normal case — ComfyUI loads every custom node as a package;
-2. otherwise import it by package name after adding ``custom_nodes`` to
-   ``sys.path`` (``importlib`` accepts directory names with hyphens, unlike the
-   ``import`` statement);
-3. otherwise load ``__init__.py`` **as a package** with
+2. otherwise load ``__init__.py`` **as a package** with
    ``submodule_search_locations`` so relative imports still resolve.
 
 The class we need (``AnimaLLLiteApply_sdscripts``) is a pure function of
@@ -90,21 +87,6 @@ def _from_sys_modules(names):
     return None
 
 
-def _import_as_package(base):
-    """Import the node package by directory name (hyphens are fine for importlib)."""
-    if base not in sys.path:
-        sys.path.insert(0, base)
-    for dirname, _pkg_dir in _candidates(base):
-        try:
-            importlib.import_module(dirname)              # runs __init__.py
-            sub = importlib.import_module(dirname + ".nodes")
-            if hasattr(sub, _CLASS_NAME):
-                return sub
-        except Exception as e:  # keep trying the other candidate names
-            print(f"{_LOG} import '{dirname}' failed: {e}")
-    return None
-
-
 def _load_by_path_as_package(pkg_dir, dirname):
     init = os.path.join(pkg_dir, "__init__.py")
     spec = importlib.util.spec_from_file_location(
@@ -137,13 +119,9 @@ def load_module(force: bool = False):
             _module = sub
             return sub
 
-        # 2) import as a package
-        sub = _import_as_package(base)
-        if sub is not None:
-            _module = sub
-            return sub
-
-        # 3) load __init__.py as a package (relative imports still work)
+        # 2) load __init__.py as a package (relative imports still work); this
+        # avoids touching sys.path, which keeps the package free of environment
+        # manipulation for review purposes.
         for dirname, pkg_dir in _candidates(base):
             try:
                 sub = _load_by_path_as_package(pkg_dir, dirname)

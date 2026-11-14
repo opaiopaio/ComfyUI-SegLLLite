@@ -36,6 +36,17 @@ EMBEDDER_MARK = "control_embedder."
 _WEIGHTS_CACHE: dict = {}
 
 
+def safe_torch_load(path: str):
+    """Load plain tensors only (torch >= 2.0 always supports ``weights_only``).
+
+    ``weights_only=True`` refuses arbitrary pickle payloads, so a malicious
+    ``.pt`` adapter cannot execute code just by being selected.
+    """
+    import torch
+
+    return torch.load(path, map_location="cpu", weights_only=True)
+
+
 class ControlEmbedderError(RuntimeError):
     """Raised when the file does not carry usable control-embedder weights."""
 
@@ -47,7 +58,7 @@ def read_lora_keys(path: str) -> list:
 
         with safe_open(path, framework="pt") as f:
             return list(f.keys())
-    sd = torch.load(path, map_location="cpu")
+    sd = safe_torch_load(path)
     return list(sd.keys())
 
 
@@ -76,7 +87,7 @@ def load_embedder(path: str):
                 elif k.endswith("proj.bias"):
                     bias = f.get_tensor(k)
     else:
-        sd = torch.load(path, map_location="cpu")
+        sd = safe_torch_load(path)
         weight = bias = None
         for k, v in sd.items():
             if EMBEDDER_MARK in k and k.endswith("proj.weight"):

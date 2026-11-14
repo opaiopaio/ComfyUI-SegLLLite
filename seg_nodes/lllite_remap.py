@@ -45,9 +45,12 @@ from ..anima_arch import (
 from ..i18n import t
 
 from ..compat import anima_lllite as anima
+from ..compat import control_embedder as cembedder
 from ..compat import impact
 
 LOG = "[SegLLLite]"
+
+_safe_torch_load = cembedder.safe_torch_load
 
 # --------------------------------------------------------------------------- #
 # Key handling
@@ -209,9 +212,7 @@ def read_weight_keys(path: str):
 
         with safe_open(path, framework="pt") as f:
             return list(f.keys())
-    import torch
-
-    sd = torch.load(path, map_location="cpu")
+    sd = _safe_torch_load(path)
     return list(sd.keys())
 
 
@@ -248,9 +249,7 @@ def _load_weights_file(file: str) -> dict:
         from safetensors.torch import load_file
 
         return load_file(file)
-    import torch
-
-    return torch.load(file, map_location="cpu")
+    return _safe_torch_load(file)
 
 
 def _make_loader(ctrl, mapping, extend: bool, extend_strength: float):
