@@ -1,4 +1,5 @@
-﻿tests/
+# Files excluded from the published Registry package.
+tests/
 .github/
 __pycache__/
 *.pyc
