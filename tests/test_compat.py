@@ -767,15 +767,37 @@ check("过滤: 非 safetensors 乐观通过", CL.is_control_lora_file("weights.p
 
 _orig_list = fp.get_filename_list
 _orig_full = fp.get_full_path
-fp.get_filename_list = lambda k: ["good.safetensors", "plain.safetensors"] if k == "loras" else []
+_orig_paths = fp.get_folder_paths
+fp.get_filename_list = lambda k: {"loras": ["good.safetensors", "plain.safetensors"],
+                                  "controlnet": []}.get(k, [])
 fp.get_full_path = lambda k, n: {"good.safetensors": _p3, "plain.safetensors": _p2}.get(n)
-_kept = CL.list_control_lora_files()
-check("过滤: 只留下 control-LoRA", _kept, ["good.safetensors"])
+fp.get_folder_paths = lambda k: []
+check("过滤: 只留下 control-LoRA", CL.list_control_lora_files(), ["good.safetensors"])
 check("过滤: 节点 combo 用它", ls._control_lora_names(), ["good.safetensors"])
+
+# 探测结果为空时不得回退成全量列表（否则下拉又是一墙无关 LoRA）
+fp.get_filename_list = lambda k: {"loras": ["plain.safetensors"], "controlnet": []}.get(k, [])
+check("过滤: 空结果 -> ['None'] 而非全量", ls._control_lora_names(), ["None"])
+
+# get_full_path 失效（嵌套子目录 / 多模型路径）时手工拼路径
+fp.get_filename_list = lambda k: {"loras": [_os.path.basename(_p3)], "controlnet": []}.get(k, [])
+fp.get_full_path = lambda k, n: None
+fp.get_folder_paths = lambda k: [_os.path.dirname(_p3)]
+check("过滤: 手工拼路径可解析", CL._resolve_in(fp, "loras", _os.path.basename(_p3)), _p3)
+
+# 完全解析不到的条目放行：宁可多列，不可藏掉用户的适配器
+fp.get_filename_list = lambda k: {"loras": ["mystery.safetensors"], "controlnet": []}.get(k, [])
+fp.get_folder_paths = lambda k: []
+check("过滤: 无法解析的文件放行", CL.list_control_lora_files(), ["mystery.safetensors"])
+
+# controlnet 目录也要扫（不少人的适配器放在那里）
+fp.get_filename_list = lambda k: {"loras": [], "controlnet": ["Anima\\pos.safetensors"]}.get(k, [])
+fp.get_full_path = lambda k, n: {"Anima\\pos.safetensors": _p3}.get(n)
+check("过滤: 也扫 controlnet", CL.list_control_lora_files(), ["Anima\\pos.safetensors"])
+
 fp.get_filename_list = _orig_list
 fp.get_full_path = _orig_full
-check("过滤: 空结果时回退全量（此处为 ['None']）", ls._control_lora_names(), ls._lora_names())
-
+fp.get_folder_paths = _orig_paths
 # 2) x_embedder 输出维度断言
 _prov = CE.token_provider(_torch.zeros(1, 16, 1, 8, 6), _torch.zeros(8, 64), _torch.zeros(8))
 try:

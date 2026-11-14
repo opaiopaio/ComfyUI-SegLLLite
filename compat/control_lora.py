@@ -149,31 +149,61 @@ def is_control_lora_file(path: str) -> bool:
     return result
 
 
-def list_control_lora_files():
-    """``models/loras`` entries that are actually control-LoRAs.
+def _resolve_in(folder_paths, folder: str, name: str):
+    """Absolute path for ``name`` inside a model folder, or None.
 
-    Returns ``None`` when the list cannot be produced (missing folder_paths,
-    unreadable folder), so callers can fall back to every LoRA instead of showing
-    an empty dropdown.
+    ``get_full_path`` covers the normal case, but it can miss names in nested
+    subdirectories (or when several model paths are configured), and a bare
+    relative file name then fails ``getmtime`` -> the adapter silently vanishes
+    from the dropdown. Hence the explicit folder walk below.
+    """
+    try:
+        p = folder_paths.get_full_path(folder, name)
+        if p and os.path.isfile(p):
+            return p
+    except Exception:
+        pass
+    try:
+        for root in folder_paths.get_folder_paths(folder):
+            cand = os.path.join(root, name)
+            if os.path.isfile(cand):
+                return cand
+    except Exception:
+        pass
+    return None
+
+
+def list_control_lora_files():
+    """Model files that really are control-LoRAs, from ``loras`` **and** ``controlnet``.
+
+    Returns ``None`` when nothing could be probed at all (no folder_paths /
+    unreadable folders), so callers may fall back to the full LoRA list. An empty
+    list means "probed, found none" -- callers must not turn that into a wall of
+    unrelated LoRAs.
+
+    Unresolvable names are kept (fail open): hiding a user's adapter is worse than
+    listing a file the node will reject with a clear message.
     """
     try:
         import folder_paths
-
-        names = list(folder_paths.get_filename_list("loras"))
     except Exception:
         return None
-    if not names:
-        return []
 
     kept = []
-    for name in names:
+    probed = False
+    for folder in ("loras", "controlnet"):
         try:
-            full = folder_paths.get_full_path("loras", name) or name
+            names = list(folder_paths.get_filename_list(folder))
         except Exception:
-            full = name
-        if is_control_lora_file(full):
-            kept.append(name)
-    return kept
+            continue
+        for name in names:
+            if name in kept:
+                continue
+            full = _resolve_in(folder_paths, folder, name)
+            probed = True
+            if full is None or is_control_lora_file(full):
+                kept.append(name)
+    return kept if probed else None
 
 
 def apply_lora_deltas(model, sd: dict, strength: float, mapping: dict | None = None):

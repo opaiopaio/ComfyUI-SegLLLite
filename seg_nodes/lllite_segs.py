@@ -356,10 +356,16 @@ def _control_lora_names():
     and let the node raise its explicit "not a control-LoRA" error instead.
     """
     kept = clora.list_control_lora_files()
-    if kept is None:
+    if kept is None:  # could not probe anything -> show everything
         return _lora_names()
     if not kept:
-        return _lora_names()
+        # Probed and found none: say so instead of dumping 40 unrelated LoRAs into
+        # the dropdown (that made the filter look broken).
+        print(
+            f"{LOG} no control-LoRA found: put the adapter in models/loras (any "
+            f"subfolder) or models/controlnet; it must contain control_embedder.* keys"
+        )
+        return ["None"]
     return kept
 
 
