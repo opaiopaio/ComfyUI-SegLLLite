@@ -332,8 +332,14 @@ def token_provider(latent=None, weight=None, bias=None, *, spatial=2, temporal=1
             value = float(progress)
         except Exception:
             return tokens
-        # Normalise against the noisiest step seen in THIS sampling run, so no
-        # assumption about the model's timestep scale is needed.
+        # Normalise against the noisiest step of THIS run. A timestep that RISES
+        # again means a new sampler started (hires second pass), so the reference
+        # resets -- otherwise pass 2 would inherit pass 1's maximum and its percent
+        # values would be misread.
+        last = seen.get("last")
+        if last is not None and value > last:
+            seen["max"] = value
+        seen["last"] = value
         seen["max"] = value if seen["max"] is None else max(seen["max"], value)
         if seen["max"] <= 0:
             return tokens
