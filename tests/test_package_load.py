@@ -1,4 +1,4 @@
-﻿"""Regression: the package must load even though ComfyUI already has a top-level
+"""Regression: the package must load even though ComfyUI already has a top-level
 module called `nodes` (its own nodes.py) in sys.modules.
 
 This is exactly the bug that made every node silently disappear:

@@ -1,4 +1,4 @@
-﻿"""ComfyUI-SegLLLite — minimal bilingual strings.
+"""ComfyUI-SegLLLite — minimal bilingual strings.
 
 Language selection (first hit wins):
   1. env ``OPNODES_LANG`` (``zh`` / ``en``)
@@ -66,7 +66,6 @@ _STRINGS = {
         "node.control_lora_apply": "Control-LoRA Apply (SEGS)",
         "node.control_lora_apply_model": "Control-LoRA Apply (Anima)",
         "node.sam2dino": "SAM2 + GroundingDINO Segment",
-        "node.sam2dino_loader": "GroundingDINO Loader",
         "desc.lllite_apply": (
             "Attach a ControlNet-LLLite to every SEG so each detected region gets its own "
             "hint image (crop / pose / control image) before sampling."
@@ -157,7 +156,6 @@ _STRINGS = {
         "node.control_lora_apply": "应用 Control-LoRA（SEGS 分区 · 姿态）",
         "node.control_lora_apply_model": "应用 Control-LoRA（Anima 姿态）",
         "node.sam2dino": "SAM2 + GroundingDINO 分区",
-        "node.sam2dino_loader": "GroundingDINO 加载器",
         "desc.lllite_apply": (
             "给每个 SEG 挂一个 ControlNet-LLLite，让每个检测区域在采样前拥有自己的提示图"
             "（本块裁剪 / 姿态 / 控制图），解决全局图被压缩到小块导致的几何错位。"

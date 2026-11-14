@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix = patch, node key change = major.
 

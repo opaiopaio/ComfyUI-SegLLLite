@@ -1,4 +1,4 @@
-﻿"""Restore BERT helpers that ``transformers>=5`` removed.
+"""Restore BERT helpers that ``transformers>=5`` removed.
 
 transformers 5 dropped ``get_extended_attention_mask`` / ``invert_attention_mask``
 / ``get_head_mask`` from ``PreTrainedModel`` (previously provided by

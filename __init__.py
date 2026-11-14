@@ -1,4 +1,4 @@
-﻿"""ComfyUI-SegLLLite — defensive node registration.
+"""ComfyUI-SegLLLite — defensive node registration.
 
 Hard rules (from the brand spec):
   * A missing optional dependency must NEVER break ComfyUI startup: each node

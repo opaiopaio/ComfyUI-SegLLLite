@@ -1,4 +1,4 @@
-﻿"""SAM2 + GroundingDINO text-prompted segmentation.
+"""SAM2 + GroundingDINO text-prompted segmentation.
 
 The goal is *not* to re-implement these models. It is to expose them through a
 node that keeps working when only the **wrapper** breaks:

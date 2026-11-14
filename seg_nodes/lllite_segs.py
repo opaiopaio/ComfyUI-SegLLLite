@@ -1,4 +1,4 @@
-﻿"""LLLite ⇄ SEGS bridge.
+"""LLLite ⇄ SEGS bridge.
 
 Why this exists
 ---------------
@@ -245,11 +245,6 @@ class LLLiteSEGSWrapper:
         return attach_control_tokens(model, self.ctrl, self._pending_ctrl_hint)
 
 
-def _vae_encode(vae, image):
-    """Backwards-compatible alias for ``control_embedder.encode_image``."""
-    return cembedder.encode_image(vae, image)
-
-
 def apply_ctrl_lora_deltas(model, cfg):
     """Patch the model with the adapter's LoRA half (block-remapped if asked)."""
     sd = clora.load_adapter(cfg["path"])
@@ -418,10 +413,6 @@ def build_control_lora_config(
     if not cembedder.has_embedder(path):
         raise ValueError(t("err.ctrl_no_embedder", name=control_lora_name))
 
-    if control_lora_hint == "segs_preprocessor":
-        pass  # checked per-wrapper (needs the preprocessor object)
-    elif control_lora_hint == "control_image":
-        pass  # checked per-wrapper
 
     if control_lora_lora_strength > 0.0:
         print(f"{LOG} control-LoRA: {control_lora_name} ({clora.describe_file(path)})")
@@ -515,12 +506,13 @@ class LLLiteApplySEGS:
         if lllite_name in (None, "", "None"):
             raise ValueError(t("err.bad_lllite", name=lllite_name))
 
-        # Fail early (and clearly) if Anima-LLLite is missing or the file is bad.
+        # Order matters: reading the metadata needs the Anima-LLLite package, so a
+        # missing package must be reported before "this is not an LLLite file".
+        anima.load_module()  # raises with a readable message when absent
         if anima.resolve_weights_path(lllite_name) is None:
             raise ValueError(t("err.bad_lllite", name=lllite_name))
         if not anima.is_lllite_file(lllite_name):
             raise ValueError(t("err.not_lllite", name=lllite_name))
-        anima.load_module()  # raises with a readable message when absent
 
         ctrl = build_control_lora_config(
             enable_control_lora,

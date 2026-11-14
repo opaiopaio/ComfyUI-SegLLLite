@@ -1,4 +1,4 @@
-﻿"""Load the Anima-LLLite node class from its *package* (never `import nodes`).
+"""Load the Anima-LLLite node class from its *package* (never `import nodes`).
 
 Anima-LLLite layout::
 

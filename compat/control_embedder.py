@@ -1,4 +1,4 @@
-﻿"""Control-LoRA support: the ``control_embedder`` (pose signal) half.
+"""Control-LoRA support: the ``control_embedder`` (pose signal) half.
 
 A *control-LoRA* file (Anima pose model) is one file with two halves:
 
@@ -31,7 +31,7 @@ import torch.nn.functional as F
 LOG = "[SegLLLite]"
 
 #: prefix inside the adapter file
-_EMBEDDER_MARK = "control_embedder."
+EMBEDDER_MARK = "control_embedder."
 #: (path, mtime, size) -> (weight, bias)
 _WEIGHTS_CACHE: dict = {}
 
@@ -62,10 +62,10 @@ def load_embedder(path: str):
         from safetensors import safe_open
 
         with safe_open(path, framework="pt") as f:
-            keys = [k for k in f.keys() if _EMBEDDER_MARK in k]
+            keys = [k for k in f.keys() if EMBEDDER_MARK in k]
             if not keys:
                 raise ControlEmbedderError(
-                    f"{os.path.basename(path)} carries no '{_EMBEDDER_MARK}' weights "
+                    f"{os.path.basename(path)} carries no '{EMBEDDER_MARK}' weights "
                     f"(expected e.g. diffusion_model.control_embedder.proj.weight). "
                     "This file is not a control-LoRA."
                 )
@@ -79,14 +79,14 @@ def load_embedder(path: str):
         sd = torch.load(path, map_location="cpu")
         weight = bias = None
         for k, v in sd.items():
-            if _EMBEDDER_MARK in k and k.endswith("proj.weight"):
+            if EMBEDDER_MARK in k and k.endswith("proj.weight"):
                 weight = v
-            elif _EMBEDDER_MARK in k and k.endswith("proj.bias"):
+            elif EMBEDDER_MARK in k and k.endswith("proj.bias"):
                 bias = v
 
     if weight is None:
         raise ControlEmbedderError(
-            f"{os.path.basename(path)} has '{_EMBEDDER_MARK}' keys but no "
+            f"{os.path.basename(path)} has '{EMBEDDER_MARK}' keys but no "
             "'...control_embedder.proj.weight'"
         )
     result = (weight.float(), None if bias is None else bias.float())
@@ -127,10 +127,12 @@ def pack_latent(latent: torch.Tensor, spatial: int = 2, temporal: int = 1):
 
     pad_h = (p - h % p) % p
     pad_w = (p - w % p) % p
-    if pad_h or pad_w:
-        latent = F.pad(latent, (0, pad_w, 0, pad_h))
+    pad_t = (r - t % r) % r
+    if pad_h or pad_w or pad_t:
+        # F.pad applies from the last dim backwards: (W, H, T)
+        latent = F.pad(latent, (0, pad_w, 0, pad_h, 0, pad_t))
     h2, w2 = (h + pad_h) // p, (w + pad_w) // p
-    t2 = (t + (r - t % r) % r) // r if r > 1 else t
+    t2 = (t + pad_t) // r
 
     x = latent.reshape(b, c, t2, r, h2, p, w2, p)
     x = x.permute(0, 2, 4, 6, 1, 3, 5, 7)  # (B, T, H2, W2, C, r, p, p)
@@ -250,7 +252,7 @@ def token_provider(latent, weight, bias, *, spatial=2, temporal=1, strength=1.0)
     return provider
 
 
-def attach(model, tokens_provider, key: str = "opnodes_animacontrol"):
+def attach(model, tokens_provider, key: str = "seglllite_control"):
     """Return a clone with a DIFFUSION_MODEL wrapper adding control tokens.
 
     ``tokens_provider(output) -> tokens`` is called on every DiT forward with the

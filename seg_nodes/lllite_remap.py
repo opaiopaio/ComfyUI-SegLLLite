@@ -1,4 +1,4 @@
-﻿"""LLLite Apply (SEGS) with cross-generation **block remapping**.
+"""LLLite Apply (SEGS) with cross-generation **block remapping**.
 
 Why this exists
 ---------------
@@ -303,54 +303,20 @@ def apply_lllite_remapped(
     extend_strength=1.0,
 ):
     """Patch ``model`` with an LLLite, remapping block indices when needed."""
-    target_blocks = resolve_dropdown(target_choice)
-    if target_blocks is None:  # Auto -> ask the model
-        target_blocks = bucket_block_count(detect_model_block_count(model))
+    from .lllite_segs import resolve_block_mapping
 
-    # The file is the ground truth: a wrong source_model would silently skip the
-    # remap and then fail deep inside the loader with a confusing depth_embed error.
+    # One resolver shared by every caller (this node, both apply nodes, the
+    # control-LoRA half): the file's own block count wins over a stale dropdown.
     path = anima.resolve_weights_path(lllite_name)
     file_blocks = peek_lllite_block_count(path) if path else None
-    chosen_blocks = resolve_dropdown(source_choice)
-    if file_blocks and chosen_blocks and file_blocks != chosen_blocks:
-        print(
-            f"{LOG} source_model={describe_count(chosen_blocks)} but the file is "
-            f"{describe_count(file_blocks)}; using the file"
-        )
-    source_blocks = file_blocks or chosen_blocks
-    if source_blocks is None:
-        raise ValueError(
-            f"cannot determine the generation of {lllite_name}; set source_model manually"
-        )
-
-    if target_blocks is None:
-        print(f"{LOG} could not detect the model's block count; assuming it matches the file")
-        target_blocks = source_blocks
-
+    source_blocks, target_blocks, mapping = resolve_block_mapping(
+        model, target_choice, source_choice, file_blocks
+    )
     print(
         f"{LOG} LLLite: file={describe_count(source_blocks)}, "
         f"model={describe_count(target_blocks)}, mode={remap_mode}"
+        + ("" if mapping else ", no remap needed")
     )
-
-    mapping = None
-    if source_blocks and target_blocks and source_blocks != target_blocks:
-        mapping = get_mapping(source_blocks, target_blocks)
-        if mapping is None:
-            raise ValueError(
-                f"cannot remap {describe_count(source_blocks)} -> "
-                f"{describe_count(target_blocks)}: only older -> newer is supported"
-            )
-
-    if mapping is None:
-        print(
-            f"{LOG} LLLite: no remap needed "
-            f"(source={describe_count(source_blocks)}, target={describe_count(target_blocks)})"
-        )
-    else:
-        print(
-            f"{LOG} LLLite: remapping {describe_count(source_blocks)} -> "
-            f"{describe_count(target_blocks)}"
-        )
 
     nodes_mod = anima.load_module()
     ctrl = _control_module()
@@ -461,12 +427,12 @@ class LLLiteApplySEGSRemap:
         if lllite_name in (None, "", "None"):
             raise ValueError(t("err.bad_lllite", name=lllite_name))
 
+        anima.load_module()  # first: reading the metadata needs the package
         path = anima.resolve_weights_path(lllite_name)
         if path is None:
             raise ValueError(t("err.bad_lllite", name=lllite_name))
         if not is_lllite_file(lllite_name):
             raise ValueError(t("err.not_lllite", name=lllite_name))
-        anima.load_module()
 
         # Fail early when the direction is unsupported (older -> newer only).
         src = resolve_dropdown(source_model) or peek_lllite_block_count(path)

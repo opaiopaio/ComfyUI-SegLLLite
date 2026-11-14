@@ -1,4 +1,4 @@
-﻿"""Control-LoRA support: the LoRA-delta half (plus block-index remapping).
+"""Control-LoRA support: the LoRA-delta half (plus block-index remapping).
 
 The same adapter file that carries ``control_embedder.proj.*`` also carries a
 normal rank-16 LoRA (``diffusion_model.blocks.<n>.*.lora_A/lora_B`` and
@@ -33,7 +33,7 @@ _EXCLUDED = ("llm_adapter", "input_blocks", "output_blocks", "lora_te")
 
 def lora_part(sd: dict) -> dict:
     """Drop the control-embedder tensors, keep the LoRA ones."""
-    return {k: v for k, v in sd.items() if control_embedder._EMBEDDER_MARK not in k}
+    return {k: v for k, v in sd.items() if control_embedder.EMBEDDER_MARK not in k}
 
 
 def block_index_of(key: str):
@@ -159,7 +159,7 @@ def describe_file(path: str) -> str:
     """Short human summary of a control-LoRA file (for logs / errors)."""
     try:
         keys = control_embedder.read_lora_keys(path)
-        has_emb = any(control_embedder._EMBEDDER_MARK in k for k in keys)
+        has_emb = any(control_embedder.EMBEDDER_MARK in k for k in keys)
         n_blocks = block_count_of_keys(keys)
         return (
             f"{len(keys)} keys, blocks={describe_count(n_blocks)}, "

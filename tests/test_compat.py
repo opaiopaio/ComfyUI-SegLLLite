@@ -1,4 +1,4 @@
-﻿"""Offline tests for ComfyUI-SegLLLite.
+"""Offline tests for ComfyUI-SegLLLite.
 
 Runs without ComfyUI / without Impact Pack / without Anima-LLLite:
   - folder_paths is stubbed
@@ -77,11 +77,14 @@ img[..., 0] = 1.0
 check("tensor_resize shape", tuple(impact.tensor_resize(img, 50, 25).shape), (1, 25, 50, 3))
 check("tensor_resize no-op shape", tuple(impact.tensor_resize(img, 200, 100).shape), (1, 100, 200, 3))
 
+# Impact's crop_region is (x1, y1, x2, y2) -- absolute corners, not (x, y, w, h).
 cropped = impact.tensor_crop(img, (10, 20, 30, 40))
-check("tensor_crop shape", tuple(cropped.shape), (1, 40, 30, 3))
+check("tensor_crop shape (x1,y1,x2,y2)", tuple(cropped.shape), (1, 20, 20, 3))
+wide = impact.tensor_crop(img, (10, 20, 60, 40))
+check("tensor_crop 角点语义: w=x2-x1", tuple(wide.shape), (1, 20, 50, 3))
 
 # out-of-bounds region must clamp, not raise
-clamped = impact.tensor_crop(img, (190, 95, 50, 50))
+clamped = impact.tensor_crop(img, (190, 95, 50, 50))  # x2 < x1 -> clamp, no raise
 check_true("tensor_crop clamps to bounds", clamped.shape[1] > 0 and clamped.shape[2] > 0,
            f"shape={tuple(clamped.shape)}")
 
@@ -632,7 +635,7 @@ _w.apply([], None, _img)
 _pat = _FakePatcher(_FakeDit())
 _out, _pils = _w.doit_ipadapter(_pat)
 check("control wrapper 已挂到 diffusion_model", "diffusion_model" in _out.wrappers, True)
-_fn = _out.wrappers["diffusion_model"]["opnodes_animacontrol"][0]
+_fn = _out.wrappers["diffusion_model"]["seglllite_control"][0]
 _x = _torch.zeros(1, 16, 1, 16, 12)
 _res = _fn(lambda: _out.model.diffusion_model.x_embedder(_x))
 check("x_embedder 输出被叠加 tokens", tuple(_res.shape), (1, 1, 8, 6, 8))
@@ -675,7 +678,7 @@ _ol, _ = _wl.doit_ipadapter(_FakePatcher(_FakeDit()))
 check("LLLite 槽位存活（clone 未丢 model_options）",
       _ol.model_options.get("model_function_wrapper"), "lllite")
 check("control-LoRA wrapper 同时挂上", "diffusion_model" in _ol.wrappers, True)
-_fn2 = _ol.wrappers["diffusion_model"]["opnodes_animacontrol"][0]
+_fn2 = _ol.wrappers["diffusion_model"]["seglllite_control"][0]
 _res2 = _fn2(lambda: _ol.model.diffusion_model.x_embedder(_x))
 check("两个控制同时生效（tokens 已叠加）", bool(float(_res2.abs().sum()) > 0), True)
 
@@ -719,7 +722,7 @@ except ValueError:
 _p1 = _FakePatcher(_FakeDit())
 (_out1,) = _node.run(_p1, _p3, 1.0, control_latent={"samples": _torch.ones(1, 16, 1, 8, 6)})
 check("control_latent(dict) 注入成功", "diffusion_model" in _out1.wrappers, True)
-_fn3 = _out1.wrappers["diffusion_model"]["opnodes_animacontrol"][0]
+_fn3 = _out1.wrappers["diffusion_model"]["seglllite_control"][0]
 _r3 = _fn3(lambda: _out1.model.diffusion_model.x_embedder(_x))
 check("模型节点 tokens 生效", bool(float(_r3.abs().sum()) > 0), True)
 
@@ -732,6 +735,25 @@ try:
     check("非 control-LoRA 文件应报错", "no error", "ValueError")
 except ValueError:
     check("非 control-LoRA 文件报错", True, True)
+
+# ------------------------------------------ resolve_block_mapping --------- #
+print("\n--- resolve_block_mapping（统一解析）---")
+_s28 = _Patcher(28)
+_s40 = _Patcher(40)
+src, tgt, mp = ls.resolve_block_mapping(_s40, AA.AUTO_LABEL, AA.AUTO_LABEL, 28)
+check("28 文件 + 40 模型：源/目标", (src, tgt), (28, 40))
+check("28→40 映射条目", len(mp), 28)
+src2, tgt2, mp2 = ls.resolve_block_mapping(_s28, AA.AUTO_LABEL, AA.AUTO_LABEL, 28)
+check("28 文件 + 28 模型：无需映射", (src2, tgt2, mp2), (28, 28, None))
+try:
+    ls.resolve_block_mapping(_s28, AA.AUTO_LABEL, AA.AUTO_LABEL, 40)
+    check("40→28 应报错", "no error", "ValueError")
+except ValueError:
+    check("40→28 明确报错", True, True)
+# 文件优先于手动选择：选 40 但文件是 28
+src3, tgt3, mp3 = ls.resolve_block_mapping(_s40, AA.AUTO_LABEL,
+                                           "Anima 2.9B (40 layers)", 28)
+check("文件优先于 source_model", (src3, tgt3), (28, 40))
 
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")

@@ -5,6 +5,6 @@
 # startup:
 #   - torch            (ships with ComfyUI)
 #   - transformers<5    for the GroundingDINO text encoder
-#   - ComfyUI-Anima-LLLite, comfyui-sam2, comfyui-inspect-pack  (optional)
+#   - ComfyUI-Anima-LLLite, comfyui-sam2, comfyui-inspire-pack  (optional)
 #
 # Intentionally empty: do not add transformers/torch here.

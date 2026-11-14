@@ -1,4 +1,4 @@
-﻿"""Impact-Pack protocol helpers — **zero `import impact`**.
+"""Impact-Pack protocol helpers — **zero `import impact`**.
 
 comfyui-impact-pack is GPL-3.0. Importing its modules would make this package a
 derivative work. Instead we rely only on its *protocol* (method/attribute names,
@@ -105,34 +105,40 @@ def tensor_resize(t, w: int, h: int):
 
 
 def tensor_crop(t, region):
-    """Crop a B,H,W,C tensor by ``region = (x, y, w, h)``; clamps to bounds."""
+    """Crop a B,H,W,C tensor by Impact's ``crop_region = (x1, y1, x2, y2)``.
+
+    Impact stores **absolute corners**, not ``(x, y, w, h)``: ``core.crop_ndarray4``
+    slices ``npimg[:, y1:y2, x1:x2, :]``. Reading it as width/height silently
+    shifts and stretches every per-segment hint, so the convention is spelled out
+    here and pinned by a regression test.
+    """
     if t is None or region is None:
         return t
     if t.dim() == 3:
         t = t.unsqueeze(0)
-    x, y, w, h = (int(v) for v in region)
+    x1, y1, x2, y2 = (int(v) for v in region)
     H, W = t.shape[1], t.shape[2]
-    x0 = max(0, min(x, W - 1))
-    y0 = max(0, min(y, H - 1))
-    x1 = max(x0 + 1, min(x + w, W))
-    y1 = max(y0 + 1, min(y + h, H))
-    return t[:, y0:y1, x0:x1, :]
+    x1 = max(0, min(x1, W - 1))
+    y1 = max(0, min(y1, H - 1))
+    x2 = max(x1 + 1, min(x2, W))
+    y2 = max(y1 + 1, min(y2, H))
+    return t[:, y1:y2, x1:x2, :]
 
 
 def mask_crop(mask, region):
-    """Crop a B,H,W (or H,W) mask by region."""
+    """Crop a B,H,W (or H,W) mask by Impact's ``crop_region = (x1, y1, x2, y2)``."""
     if mask is None or region is None:
         return mask
     squeeze = mask.dim() == 2
     if squeeze:
         mask = mask.unsqueeze(0)
-    x, y, w, h = (int(v) for v in region)
+    x1, y1, x2, y2 = (int(v) for v in region)
     H, W = mask.shape[1], mask.shape[2]
-    x0 = max(0, min(x, W - 1))
-    y0 = max(0, min(y, H - 1))
-    x1 = max(x0 + 1, min(x + w, W))
-    y1 = max(y0 + 1, min(y + h, H))
-    out = mask[:, y0:y1, x0:x1]
+    x1 = max(0, min(x1, W - 1))
+    y1 = max(0, min(y1, H - 1))
+    x2 = max(x1 + 1, min(x2, W))
+    y2 = max(y1 + 1, min(y2, H))
+    out = mask[:, y1:y2, x1:x2]
     return out.squeeze(0) if squeeze else out
 
 
