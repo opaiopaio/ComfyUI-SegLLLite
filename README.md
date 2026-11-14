@@ -121,15 +121,22 @@ txt2img / img2img:
 
 ```
 Control-LoRA Apply (Anima)
-  model                 ← LoraLoaderModelOnly(model, adapter, lora_strength)   (reads the LoRA half)
-  control_lora_name     = the same adapter file                                (this node reads control_embedder.proj.*)
-  control_latent        ← VAEEncode(skeleton)                                  (or use image + vae below)
-  strength              = 1.0   (0 = model returned untouched, no clone, no hook)
+  model                 ← any checkpoint (LoraLoaderModelOnly NOT required)
+  control_lora_name     = the adapter file        (combo lists only control-LoRAs)
+  strength              = 1.0    pose embedder;  0 = disabled
+  lora_strength         = 0.0    also apply the adapter LoRA half; 0 = leave it to LoraLoaderModelOnly
+  enable_remap          = true   remap that half when generations differ (28 -> 40 / 52)
+  control_latent        ← VAEEncode(skeleton)     (or use image + vae below)
   [optional] image + vae → encoded here, saving the VAEEncode node
 ```
 
-Same file, two nodes -- exactly like upstream, but with no third-party package: only the weight file is
-needed (its licence is non-commercial; generated images are unaffected).
+One file, one node: both halves of the adapter can be applied here, including the cross-generation
+remap for the LoRA half. Set `lora_strength=0` to keep using `LoraLoaderModelOnly` as upstream does.
+Only the weight file is needed (its licence is non-commercial; generated images are unaffected).
+
+The `control_lora_name` dropdown lists **only files that actually contain `control_embedder.*`**
+(a header-only probe, cached by mtime; ~5 ms for 40 LoRAs). If the probe cannot run it falls back to
+the full LoRA list and the node raises its explicit "not a control-LoRA" error.
 
 ### Which files can be used here
 

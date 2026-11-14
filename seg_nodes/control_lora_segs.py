@@ -25,7 +25,7 @@ from ..i18n import t
 
 from .lllite_segs import (
     CONTROL_HINT_MODES,
-    _lora_names,
+    _control_lora_names,
     apply_control_lora,
     build_control_lora_config,
     resolve_ctrl_hint,
@@ -89,7 +89,7 @@ class ControlLoRAApplySEGS:
         return {
             "required": {
                 "segs": ("SEGS",),
-                "control_lora_name": (_lora_names(), {"tooltip": t("tip.control_lora_name")}),
+                "control_lora_name": (_control_lora_names(), {"tooltip": t("tip.control_lora_name")}),
                 "vae": ("VAE", {"tooltip": t("tip.ctrl_vae")}),
                 "control_lora_strength": (
                     "FLOAT",

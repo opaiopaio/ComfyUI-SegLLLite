@@ -698,7 +698,9 @@ from comfyui_seglllite.seg_nodes import control_lora_model as CLM  # noqa: E402
 
 check("模型节点已注册", "ControlLoRAApplyModel" in CLM.NODE_CLASS_MAPPINGS, True)
 _it4 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
-check("required 参数", list(_it4["required"]), ["model", "control_lora_name", "strength"])
+check("required 参数（新参数追加在 strength 之后）", list(_it4["required"]),
+      ["model", "control_lora_name", "strength", "lora_strength",
+       "enable_remap", "target_model", "source_model"])
 check("optional 参数", list(_it4["optional"]), ["control_latent", "image", "vae"])
 check("输出是 MODEL", CLM.ControlLoRAApplyModel.RETURN_TYPES, ("MODEL",))
 
@@ -754,6 +756,48 @@ except ValueError:
 src3, tgt3, mp3 = ls.resolve_block_mapping(_s40, AA.AUTO_LABEL,
                                            "Anima 2.9B (40 layers)", 28)
 check("文件优先于 source_model", (src3, tgt3), (28, 40))
+
+# ------------------------------- 本轮补充：过滤 / 断言 / 模型节点 remap ---- #
+print("\n--- combo 过滤 + 形状断言 + 模型节点 remap ---")
+
+# 1) 只列含 control_embedder.* 的文件
+check("过滤: 含 embedder 的文件判定", CL.is_control_lora_file(_p3), True)
+check("过滤: 普通 LoRA 判定", CL.is_control_lora_file(_p2), False)
+check("过滤: 非 safetensors 乐观通过", CL.is_control_lora_file("weights.pt"), True)
+
+_orig_list = fp.get_filename_list
+_orig_full = fp.get_full_path
+fp.get_filename_list = lambda k: ["good.safetensors", "plain.safetensors"] if k == "loras" else []
+fp.get_full_path = lambda k, n: {"good.safetensors": _p3, "plain.safetensors": _p2}.get(n)
+_kept = CL.list_control_lora_files()
+check("过滤: 只留下 control-LoRA", _kept, ["good.safetensors"])
+check("过滤: 节点 combo 用它", ls._control_lora_names(), ["good.safetensors"])
+fp.get_filename_list = _orig_list
+fp.get_full_path = _orig_full
+check("过滤: 空结果时回退全量（此处为 ['None']）", ls._control_lora_names(), ls._lora_names())
+
+# 2) x_embedder 输出维度断言
+_prov = CE.token_provider(_torch.zeros(1, 16, 1, 8, 6), _torch.zeros(8, 64), _torch.zeros(8))
+try:
+    _prov(_torch.zeros(1, 8, 6, 8))  # 4D -> 必须先报错，而不是索引越界/形状乱算
+    check("4D 输出应报错", "no error", "RuntimeError")
+except RuntimeError as e:
+    check("4D 输出报错信息含 expected", "expected (B, T, H, W, D)" in str(e), True)
+
+# 3) 模型节点：remap 参数与双开关短路
+_it5 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
+check("模型节点有 lora_strength", "lora_strength" in _it5["required"], True)
+check("模型节点有 remap 三件套",
+      all(k in _it5["required"] for k in ("enable_remap", "target_model", "source_model")), True)
+check("已有 widget 顺序未被破坏",
+      list(_it5["required"])[:3], ["model", "control_lora_name", "strength"])
+
+_p5 = _FakePatcher(_FakeDit())
+(_out5,) = _node.run(_p5, "ctrl8", 0.0, lora_strength=0.0)
+check("两个强度都为 0 → 原样返回", _out5 is _p5, True)
+(_out6,) = _node.run(_FakePatcher(_FakeDit()), _p3, 1.0,
+                     control_latent={"samples": _torch.ones(1, 16, 1, 8, 6)})
+check("只开姿态仍可注入", "diffusion_model" in _out6.wrappers, True)
 
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")

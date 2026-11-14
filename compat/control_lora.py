@@ -118,6 +118,64 @@ def resolve_lora_path(name: str):
     return name if os.path.isfile(name) else None
 
 
+#: (path, mtime, size) -> bool  ("does this file carry control_embedder weights?")
+_HEADER_CACHE: dict = {}
+
+
+def is_control_lora_file(path: str) -> bool:
+    """Cheap header probe: does the file contain ``control_embedder.*`` weights?
+
+    ``safetensors.safe_open`` only reads the header, so forty LoRAs cost ~a second
+    once, and the result is cached until the file changes. Non-safetensors files
+    (rare for adapters) are accepted optimistically -- they cannot be probed
+    cheaply and the runtime check still rejects them with a clear message.
+    """
+    if not path.lower().endswith(".safetensors"):
+        return True
+    try:
+        stamp = (path, os.path.getmtime(path), os.path.getsize(path))
+    except OSError:
+        return False
+    cached = _HEADER_CACHE.get(stamp)
+    if cached is not None:
+        return cached
+    try:
+        keys = control_embedder.read_lora_keys(path)
+        result = any(control_embedder.EMBEDDER_MARK in k for k in keys)
+    except Exception as e:
+        print(f"{LOG} header probe failed for {os.path.basename(path)}: {e}")
+        result = True  # do not hide a file because probing failed
+    _HEADER_CACHE[stamp] = result
+    return result
+
+
+def list_control_lora_files():
+    """``models/loras`` entries that are actually control-LoRAs.
+
+    Returns ``None`` when the list cannot be produced (missing folder_paths,
+    unreadable folder), so callers can fall back to every LoRA instead of showing
+    an empty dropdown.
+    """
+    try:
+        import folder_paths
+
+        names = list(folder_paths.get_filename_list("loras"))
+    except Exception:
+        return None
+    if not names:
+        return []
+
+    kept = []
+    for name in names:
+        try:
+            full = folder_paths.get_full_path("loras", name) or name
+        except Exception:
+            full = name
+        if is_control_lora_file(full):
+            kept.append(name)
+    return kept
+
+
 def apply_lora_deltas(model, sd: dict, strength: float, mapping: dict | None = None):
     """Patch the model with the adapter's LoRA half.
 

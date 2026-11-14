@@ -229,6 +229,11 @@ def token_provider(latent, weight, bias, *, spatial=2, temporal=1, strength=1.0)
     cache = {}
 
     def provider(output):
+        if output.dim() != 5:
+            raise RuntimeError(
+                f"{LOG} x_embedder output is {output.dim()}D (shape {tuple(output.shape)}), "
+                "expected (B, T, H, W, D); this DiT layout is not supported"
+            )
         key = (output.shape[2], output.shape[3], str(output.device), str(output.dtype))
         tokens = cache.get(key)
         if tokens is None:

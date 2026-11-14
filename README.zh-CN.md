@@ -108,14 +108,20 @@ Anima 2.9B / 3.8B 请用 **应用 LLLite（SEGS 分区 · 跨代重映射）**�
 
 ```
 应用 Control-LoRA（Anima 姿态）
-  model              ← LoraLoaderModelOnly(model, adapter, lora_strength)  （读 LoRA 那一半）
-  control_lora_name  = 同一个适配器文件                                     （本节点读 control_embedder.proj.*）
-  control_latent     ← VAEEncode(骨架图)                                    （或改用下面的 image + vae）
-  strength           = 1.0   （0 = 原样返回模型，不 clone、不挂 hook）
+  model            ← 任意 checkpoint（不再需要 LoraLoaderModelOnly）
+  control_lora_name = 适配器文件        （下拉只列真正的 control-LoRA）
+  strength          = 1.0   姿态 embedder；0 = 关闭
+  lora_strength     = 0.0   顺便应用适配器的 LoRA 半部；0 = 交给 LoraLoaderModelOnly
+  enable_remap      = true  代不同时对那半部做 block 重映射（28 -> 40 / 52）
+  control_latent    ← VAEEncode(骨架图)   （或改用下面的 image + vae）
   [可选] image + vae → 在这里编码，省掉 VAEEncode 节点
 ```
 
-同一个文件两个节点——和官方一致，但**不需要装第三方包**，只要有权重文件（权重非商用，生成图不受限）。
+一个文件、一个节点：适配器的两半都能在这里应用，包括 LoRA 半部的跨代重映射。把 `lora_strength`
+设为 0 就回到官方那种「LoRA 由 LoraLoaderModelOnly 加载」的用法。只需要权重文件（非商用，生成图不受限）。
+
+`control_lora_name` 下拉**只列真正含 `control_embedder.*` 的文件**（只读 header，按 mtime 缓存；
+40 个 LoRA 约 5 ms）。探测失败时回退到全部 LoRA，由节点给出明确的「不是 control-LoRA」错误。
 
 ### 什么文件能用
 

@@ -337,6 +337,7 @@ def _controlnet_names():
 
 
 def _lora_names():
+    """Every LoRA (used nowhere now; kept for callers that need the full list)."""
     try:
         import folder_paths
 
@@ -344,6 +345,22 @@ def _lora_names():
     except Exception:
         names = []
     return names or ["None"]
+
+
+def _control_lora_names():
+    """Only files that really carry ``control_embedder.*`` weights.
+
+    A 200-file LoRA folder otherwise drowns the three usable adapters. Filtering
+    is a header-only probe with an mtime cache; if it cannot run (no
+    folder_paths, unreadable folder, empty result) we fall back to the full list
+    and let the node raise its explicit "not a control-LoRA" error instead.
+    """
+    kept = clora.list_control_lora_files()
+    if kept is None:
+        return _lora_names()
+    if not kept:
+        return _lora_names()
+    return kept
 
 
 def _seg_hint(seg, hint_mode, preprocessor, original_size, control_image):
@@ -368,7 +385,7 @@ def _ctrl_lora_inputs():
             "BOOLEAN",
             {"default": False, "tooltip": t("tip.enable_control_lora")},
         ),
-        "control_lora_name": (_lora_names(), {"tooltip": t("tip.control_lora_name")}),
+        "control_lora_name": (_control_lora_names(), {"tooltip": t("tip.control_lora_name")}),
         "control_lora_strength": (
             "FLOAT",
             {"default": 1.2, "min": 0.0, "max": 2.0, "step": 0.05,

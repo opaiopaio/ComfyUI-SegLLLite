@@ -73,12 +73,14 @@ _STRINGS = {
         "desc.lllite_clear": "Remove LLLite wrappers from a SEGS chain (debug / reset).",
         "desc.control_lora_apply_model": (
             "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
-            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
-            "an image + vae. strength=0 returns the model untouched."
+            "img2img, no third-party node required. Applies the pose embedder (strength) and/or the "
+            "adapter's LoRA half (lora_strength, with cross-generation block remapping). Accepts an "
+            "encoded control_latent, or an image + vae. Both strengths 0 = model untouched."
         ),
         "desc.control_lora_apply_model": (
             "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
-            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+            "可分别控制姿态 embedder（strength）与适配器的 LoRA 半部（lora_strength，支持跨代 block 重映射）。"
+            "可接已编码的 control_latent，或接 image + vae 自动编码。两个强度都为 0 时模型原样返回。"
         ),
         "desc.control_lora_apply": (
             "Attach a Control-LoRA (pose adapter) to every segment: the adapter's LoRA half plus the "
@@ -87,12 +89,14 @@ _STRINGS = {
         ),
         "desc.control_lora_apply_model": (
             "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
-            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
-            "an image + vae. strength=0 returns the model untouched."
+            "img2img, no third-party node required. Applies the pose embedder (strength) and/or the "
+            "adapter's LoRA half (lora_strength, with cross-generation block remapping). Accepts an "
+            "encoded control_latent, or an image + vae. Both strengths 0 = model untouched."
         ),
         "desc.control_lora_apply_model": (
             "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
-            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+            "可分别控制姿态 embedder（strength）与适配器的 LoRA 半部（lora_strength，支持跨代 block 重映射）。"
+            "可接已编码的 control_latent，或接 image + vae 自动编码。两个强度都为 0 时模型原样返回。"
         ),
         "desc.control_lora_apply": (
             "给每个分区挂一个 Control-LoRA（姿态适配器）：文件里的 LoRA 部分 + 零初始化 control "
@@ -121,6 +125,7 @@ _STRINGS = {
         "tip.control_lora_hint": "Where the pose skeleton comes from: SEGS preprocessor / global control image / the LLLite hint itself.",
         "tip.ctrl_vae": "Required by the control-LoRA backend to encode the skeleton into a control latent.",
         "tip.ctrl_latent": "Already encoded control latent (e.g. VAEEncode of a skeleton). Takes precedence over image.",
+        "tip.ctrl_model_lora_strength": "Also apply the adapter's LoRA half here (0 = leave it to LoraLoaderModelOnly). On 2.9B/3.8B it is remapped automatically.",
         "tip.ctrl_image": "Raw skeleton/control image; encoded with the vae input (saves a VAEEncode node).",
         "hint.no_segs": "no SEGS",
         "hint.seg_count": "{n} SEG",
@@ -163,12 +168,14 @@ _STRINGS = {
         "desc.lllite_clear": "清除 SEGS 链上的 LLLite wrapper（调试 / 重置）。",
         "desc.control_lora_apply_model": (
             "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
-            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
-            "an image + vae. strength=0 returns the model untouched."
+            "img2img, no third-party node required. Applies the pose embedder (strength) and/or the "
+            "adapter's LoRA half (lora_strength, with cross-generation block remapping). Accepts an "
+            "encoded control_latent, or an image + vae. Both strengths 0 = model untouched."
         ),
         "desc.control_lora_apply_model": (
             "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
-            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+            "可分别控制姿态 embedder（strength）与适配器的 LoRA 半部（lora_strength，支持跨代 block 重映射）。"
+            "可接已编码的 control_latent，或接 image + vae 自动编码。两个强度都为 0 时模型原样返回。"
         ),
         "desc.control_lora_apply": (
             "Attach a Control-LoRA (pose adapter) to every segment: the adapter's LoRA half plus the "
@@ -177,12 +184,14 @@ _STRINGS = {
         ),
         "desc.control_lora_apply_model": (
             "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
-            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
-            "an image + vae. strength=0 returns the model untouched."
+            "img2img, no third-party node required. Applies the pose embedder (strength) and/or the "
+            "adapter's LoRA half (lora_strength, with cross-generation block remapping). Accepts an "
+            "encoded control_latent, or an image + vae. Both strengths 0 = model untouched."
         ),
         "desc.control_lora_apply_model": (
             "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
-            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+            "可分别控制姿态 embedder（strength）与适配器的 LoRA 半部（lora_strength，支持跨代 block 重映射）。"
+            "可接已编码的 control_latent，或接 image + vae 自动编码。两个强度都为 0 时模型原样返回。"
         ),
         "desc.control_lora_apply": (
             "给每个分区挂一个 Control-LoRA（姿态适配器）：文件里的 LoRA 部分 + 零初始化 control "
@@ -210,6 +219,7 @@ _STRINGS = {
         "tip.control_lora_hint": "姿态骨架来源：SEGS 预处理器 / 全局控制图 / 与 LLLite 同一个 hint。",
         "tip.ctrl_vae": "control-LoRA 后端需要它把骨架图编码成 control latent。",
         "tip.ctrl_latent": "已编码的 control latent（例如骨架图过 VAEEncode）。优先于 image。",
+        "tip.ctrl_model_lora_strength": "顺便在这里应用适配器的 LoRA 半部（0 = 交给 LoraLoaderModelOnly）。2.9B/3.8B 上会自动重映射。",
         "tip.ctrl_image": "原始骨架/控制图；用 vae 输入自动编码（省掉一个 VAEEncode）。",
         "hint.no_segs": "无 SEGS",
         "hint.seg_count": "{n} 块",
