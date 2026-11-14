@@ -1,4 +1,4 @@
-﻿"""ComfyUI-LLLiteSEGS — defensive node registration.
+﻿"""ComfyUI-SegLLLite — defensive node registration.
 
 Hard rules (from the brand spec):
   * A missing optional dependency must NEVER break ComfyUI startup: each node
@@ -27,7 +27,7 @@ try:
     NODE_CLASS_MAPPINGS.update(_A)
     NODE_DISPLAY_NAME_MAPPINGS.update(_AD)
 except Exception as e:  # pragma: no cover
-    print(f"[LLLiteSEGS] LLLite SEGS nodes disabled: {e}")
+    print(f"[SegLLLite] LLLite SEGS nodes disabled: {e}")
 
 # ---- SAM2 + GroundingDINO: only if comfyui-sam2 is installed -------------- #
 try:
@@ -37,14 +37,14 @@ try:
         NODE_CLASS_MAPPINGS.update(_sd.NODE_CLASS_MAPPINGS)
         NODE_DISPLAY_NAME_MAPPINGS.update(_sd.NODE_DISPLAY_NAME_MAPPINGS)
 except Exception as e:  # pragma: no cover
-    print(f"[LLLiteSEGS] SAM2/DINO nodes disabled: {e}")
+    print(f"[SegLLLite] SAM2/DINO nodes disabled: {e}")
 
 WEB_DIRECTORY = "./web"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
 print(
-    "[LLLiteSEGS] loaded nodes: "
+    "[SegLLLite] loaded nodes: "
     + (", ".join(sorted(NODE_CLASS_MAPPINGS)) or "(none — check optional dependencies)")
     + f"   (language: {language_name()} [{LANG}])"
 )

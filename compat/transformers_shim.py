@@ -18,7 +18,7 @@ This is a *compatibility* shim: it only restores behaviour that used to exist.
 
 import torch
 
-_LOG = "[LLLiteSEGS]"
+_LOG = "[SegLLLite]"
 _STATUS = None  # None = not checked yet
 
 

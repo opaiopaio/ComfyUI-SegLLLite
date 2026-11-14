@@ -1,4 +1,4 @@
-﻿"""Offline tests for ComfyUI-LLLiteSEGS.
+﻿"""Offline tests for ComfyUI-SegLLLite.
 
 Runs without ComfyUI / without Impact Pack / without Anima-LLLite:
   - folder_paths is stubbed
@@ -33,7 +33,7 @@ import torch  # noqa: E402
 
 # Give the package a proper package context so its *relative* imports resolve.
 # The directory name contains hyphens, so build the package module by hand.
-_PKG = "comfyui_lllitesegs"
+_PKG = "comfyui_seglllite"
 if _PKG not in sys.modules:
     _m = types.ModuleType(_PKG)
     _m.__path__ = [ROOT]

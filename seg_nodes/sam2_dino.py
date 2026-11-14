@@ -22,7 +22,7 @@ import torch
 from ..compat.transformers_shim import ensure_legacy_attention_helpers
 from ..i18n import t
 
-LOG = "[LLLiteSEGS]"
+LOG = "[SegLLLite]"
 
 _MODULE_NAME = "lllitesegs_sam2_impl"
 _PACKAGE_DIRS = ("comfyui-sam2", "ComfyUI-SAM2", "comfyui_sam2")

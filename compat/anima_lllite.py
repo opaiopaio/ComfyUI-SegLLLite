@@ -34,7 +34,7 @@ import os
 import sys
 import threading
 
-_LOG = "[LLLiteSEGS]"
+_LOG = "[SegLLLite]"
 
 # Directory names seen in the wild for ComfyUI-Anima-LLLite.
 CANDIDATE_DIRS = (

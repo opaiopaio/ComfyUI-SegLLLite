@@ -19,7 +19,7 @@ scratch (``torch.nn.functional.interpolate`` / plain slicing).
 import torch
 import torch.nn.functional as F
 
-_LOG = "[LLLiteSEGS]"
+_LOG = "[SegLLLite]"
 
 
 # --------------------------------------------------------------------------- #

@@ -1,7 +1,7 @@
-﻿# ComfyUI-LLLiteSEGS
+﻿# ComfyUI-SegLLLite
 
 > **OPNodes 系列** · 作者 欧派欧派欧（opaiopaio）· MIT
-> 🧩 **本包**：DiT 模型的分区 ControlNet-LLLite 控制 + SAM2/GroundingDINO 分区
+> 🧩 **本包**：让 Impact/LanPaint 的 **SEGS Detailer 兼容 ControlNet-LLLite** —— 每个检测区域用自己的 LLLite 提示图。另含文本提示的 SAM2+GroundingDINO 分区
 > 🎯 **姊妹包**：[ComfyUI-LoRAStackAutoTriggers](https://github.com/opaiopaio/ComfyUI-LoRAStackAutoTriggers) —— LoRA 堆叠 / 自动触发词 / Anima 跨代映射
 
 [English](README.md) | **中文**
@@ -34,7 +34,7 @@ Impact Pack 的 Detailer 会把每个检测区域**裁剪出来单独采样**；
 
 ## 安装
 
-1. 把本文件夹复制到 `ComfyUI/custom_nodes/ComfyUI-LLLiteSEGS`
+1. 把本文件夹复制到 `ComfyUI/custom_nodes/ComfyUI-SegLLLite`
 2. 重启 ComfyUI
 3. 可选：LLLite 节点需要 `ComfyUI-Anima-LLLite`；分区节点需要 `comfyui-sam2`
 
@@ -62,7 +62,7 @@ LoadImage ─► [SAM2 + GroundingDINO 分区]  prompt "hand"，threshold 0.3
 | v0.1.x | ≥ 0.4x | ≥ 8.x（可选） | ≥ 1.0（可选） | 任意（≥5 已在运行时修好） |
 
 启动日志会打印语言与已注册节点，例如
-`[LLLiteSEGS] loaded nodes: LLLiteApplySEGS, …`
+`[SegLLLite] loaded nodes: LLLiteApplySEGS, …`
 
 ## 语言
 

@@ -27,7 +27,7 @@ from ..compat import anima_lllite as anima
 from ..compat import impact
 from ..i18n import t
 
-LOG = "[LLLiteSEGS]"
+LOG = "[SegLLLite]"
 
 HINT_MODES = ["image", "pose", "control_image"]
 

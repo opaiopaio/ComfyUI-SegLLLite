@@ -30,12 +30,12 @@ fake_nodes.NODE_CLASS_MAPPINGS = {}
 sys.modules["nodes"] = fake_nodes
 
 spec = importlib.util.spec_from_file_location(
-    "ComfyUI_LLLiteSEGS",
+    "ComfyUI_SegLLLite",
     os.path.join(ROOT, "__init__.py"),
     submodule_search_locations=[ROOT],
 )
 mod = importlib.util.module_from_spec(spec)
-sys.modules["ComfyUI_LLLiteSEGS"] = mod
+sys.modules["ComfyUI_SegLLLite"] = mod
 spec.loader.exec_module(mod)
 
 maps = mod.NODE_CLASS_MAPPINGS

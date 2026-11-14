@@ -1,7 +1,7 @@
-﻿# ComfyUI-LLLiteSEGS
+﻿# ComfyUI-SegLLLite
 
 > **OPNodes series** · by 欧派欧派欧 (opaiopaio) · MIT
-> 🧩 **This package**: per-segment ControlNet-LLLite control for DiT models + SAM2/GroundingDINO segmentation
+> 🧩 **This package**: makes Impact/LanPaint **SEGS detailers compatible with ControlNet-LLLite** — every detected region is sampled with its own LLLite hint. Also ships text-prompted SAM2+GroundingDINO segmentation
 > 🎯 **Sister package**: [ComfyUI-LoRAStackAutoTriggers](https://github.com/opaiopaio/ComfyUI-LoRAStackAutoTriggers) — LoRA stacking / auto trigger words / Anima cross-generation remap
 
 **English** | [中文](README.zh-CN.md)
@@ -35,7 +35,7 @@ A missing optional dependency disables only the affected nodes; ComfyUI always s
 
 ## Install
 
-1. Copy this folder into `ComfyUI/custom_nodes/ComfyUI-LLLiteSEGS`.
+1. Copy this folder into `ComfyUI/custom_nodes/ComfyUI-SegLLLite`.
 2. Restart ComfyUI.
 3. Optional, per node: install `ComfyUI-Anima-LLLite` (LLLite nodes) and `comfyui-sam2` (segmentation node).
 
@@ -64,7 +64,7 @@ hint — that is the whole point of the package.
 | v0.1.x | ≥ 0.4x | ≥ 8.x (optional) | ≥ 1.0 (optional) | any (≥5 fixed at runtime) |
 
 A startup log line reports the language and which nodes registered, e.g.
-`[LLLiteSEGS] loaded nodes: LLLiteApplySEGS, …`.
+`[SegLLLite] loaded nodes: LLLiteApplySEGS, …`.
 
 ## Language
 

@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-All notable changes to **ComfyUI-LLLiteSEGS**. SemVer: new node = minor, bug fix = patch, node key change = major.
+All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix = patch, node key change = major.
 
 ## [1.0.0] — 2026-11-14
 

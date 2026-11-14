@@ -1,4 +1,4 @@
-﻿"""ComfyUI-LLLiteSEGS — minimal bilingual strings.
+﻿"""ComfyUI-SegLLLite — minimal bilingual strings.
 
 Language selection (first hit wins):
   1. env ``OPNODES_LANG`` (``zh`` / ``en``)
@@ -14,7 +14,7 @@ languages.
 
 import os
 
-_LOG = "[LLLiteSEGS]"
+_LOG = "[SegLLLite]"
 
 
 def _detect_lang() -> str:
