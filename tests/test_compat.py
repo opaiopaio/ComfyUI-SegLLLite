@@ -545,10 +545,10 @@ check("control-LoRA 追加在末尾", list(_it["required"])[7:], _CTRL + _RAMP)
 check("vae 在 optional", "vae" in _it["optional"], True)
 
 _itr = LR.LLLiteApplySEGSRemap.INPUT_TYPES()
-check("remap 节点前 7 个参数不变", list(_itr["required"])[:7], _OLD7)
-check("remap 参数位置不变", list(_itr["required"])[7:12],
+check("remap 节点: LLLite 组在前 7 位", list(_itr["required"])[:7], _OLD7)
+check("remap 节点: Control-LoRA 组紧随其后", list(_itr["required"])[7:14], _CTRL + _RAMP)
+check("remap 节点: remap 组在最后（统管两套权重）", list(_itr["required"])[14:],
       ["enable_remap", "target_model", "source_model", "remap_mode", "extend_strength"])
-check("remap 节点 control-LoRA 追加在末尾", list(_itr["required"])[12:], _CTRL + _RAMP)
 check("remap 节点有 vae", "vae" in _itr["optional"], True)
 
 print("\n--- build_control_lora_config 校验 ---")

@@ -365,32 +365,35 @@ class LLLiteApplySEGSRemap:
         from .lllite_segs import HINT_MODES, _controlnet_names, _ctrl_lora_inputs
 
         required = {
-                "segs": ("SEGS",),
-                "lllite_name": (_controlnet_names(),),
-                "strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.05}),
-                "start_percent": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "end_percent": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "hint_mode": (HINT_MODES, {"default": "image", "tooltip": t("tip.hint_mode")}),
-                "preserve_wrapper": ("BOOLEAN", {"default": True}),
-                # --- remap options (mirrors LoRA Stack Apply (Anima Remap)) ---
-                "enable_remap": ("BOOLEAN", {"default": True}),
-                "target_model": (
-                    MODEL_CHOICES,
-                    {"default": AUTO_LABEL, "tooltip": t("tip.lllite_target")},
-                ),
-                "source_model": (
-                    MODEL_CHOICES,
-                    {"default": AUTO_LABEL, "tooltip": t("tip.lllite_source")},
-                ),
-                "remap_mode": (REMAP_MODES, {"default": REMAP_MODES[0]}),
-                "extend_strength": (
-                    "FLOAT",
-                    {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05,
-                     "tooltip": t("tip.lllite_extend")},
-                ),
+            # --- ① LLLite (per-region hint) ---
+            "segs": ("SEGS",),
+            "lllite_name": (_controlnet_names(),),
+            "strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.05}),
+            "start_percent": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+            "end_percent": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
+            "hint_mode": (HINT_MODES, {"default": "image", "tooltip": t("tip.hint_mode")}),
+            "preserve_wrapper": ("BOOLEAN", {"default": True}),
         }
-        # Appended after every published input so saved workflows keep mapping.
+        # --- ② optional Control-LoRA (pose) on the same segment ---
         required.update(_ctrl_lora_inputs())
+        # --- ③ remap last: one mapping for BOTH weight sets (same parent DiT) ---
+        required.update({
+            "enable_remap": ("BOOLEAN", {"default": True}),
+            "target_model": (
+                MODEL_CHOICES,
+                {"default": AUTO_LABEL, "tooltip": t("tip.lllite_target")},
+            ),
+            "source_model": (
+                MODEL_CHOICES,
+                {"default": AUTO_LABEL, "tooltip": t("tip.lllite_source")},
+            ),
+            "remap_mode": (REMAP_MODES, {"default": REMAP_MODES[0]}),
+            "extend_strength": (
+                "FLOAT",
+                {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.05,
+                 "tooltip": t("tip.lllite_extend")},
+            ),
+        })
         return {
             "required": required,
             "optional": {
@@ -407,11 +410,12 @@ class LLLiteApplySEGSRemap:
     DESCRIPTION = t("desc.lllite_apply_remap")
 
     def run(self, segs, lllite_name, strength, start_percent, end_percent, hint_mode,
-            preserve_wrapper, enable_remap, target_model, source_model, remap_mode,
-            extend_strength, enable_control_lora=False, control_lora_name="None",
+            preserve_wrapper, enable_control_lora=False, control_lora_name="None",
             control_lora_strength=1.2, control_lora_lora_strength=1.0,
             control_lora_hint="segs_preprocessor",
             control_lora_start_percent=0.0, control_lora_end_percent=1.0,
+            enable_remap=True, target_model=AUTO_LABEL, source_model=AUTO_LABEL,
+            remap_mode=REMAP_MODES[0], extend_strength=1.0,
             segs_preprocessor=None, control_image=None, vae=None):
         from .lllite_segs import LLLiteSEGSWrapper, build_control_lora_config
 

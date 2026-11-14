@@ -2,6 +2,17 @@
 
 All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix = patch, node key change = major.
 
+## [1.2.0] — 2026-11-14
+
+### Changed (breaking for saved workflows)
+- **`LLLite Apply (SEGS, Remap)` inputs regrouped**: LLLite block -> Control-LoRA block -> **remap block
+  last**, because remapping describes the *parent DiT* and therefore governs both weight sets at once.
+  ComfyUI stores widget values positionally, so after updating re-check these five values:
+  `enable_remap`, `target_model`, `source_model`, `remap_mode`, `extend_strength`.
+
+### Added
+- The single remap block now covers the control-LoRA delta as well (Keys only / Extend).
+
 ## [1.1.0] — 2026-11-14
 
 ### Added
