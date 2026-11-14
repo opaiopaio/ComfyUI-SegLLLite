@@ -27,6 +27,8 @@ Impact Pack 的 Detailer 会把每个检测区域**裁剪出来单独采样**；
 |---|---|---|
 | **应用 LLLite（SEGS 分区）** | 给每个 SEG 挂 LLLite；提示图来源可选 `image`（本块裁剪）/ `pose`（对本块跑 SEGS 预处理器）/ `control_image`（从全局控制图裁块）；支持链式叠加 | torch（ComfyUI 自带）+ Anima-LLLite |
 | **应用 LLLite（SEGS 分区 · 跨代重映射）** | 同上，**外加跨代 block 重映射**：28 层 LLLite 也能驱动 40 层（Anima 2.9B）/ 52 层（3.8B）模型 | torch + Anima-LLLite |
+| **应用 Control-LoRA（SEGS 分区 · 姿态）** | 给每个分区挂姿态适配器：文件里的 LoRA 部分 + 零初始化 control embedder；不含 LLLite，接在 LLLite 节点后面即可两者同时生效 | torch + Control-LoRA 文件 |
+| **应用 Control-LoRA（Anima 姿态）** | 同一内核对整个 **MODEL** 生效（不涉 SEGS）：普通文生图/图生图加姿态控制；可接已编码的 `control_latent`，也可接 `image` + `vae`；`strength=0` 时模型原样返回 | torch + Control-LoRA 文件 |
 | **清除 LLLite（SEGS）** | 清空 SEGS 链上的 wrapper | torch |
 | **LLLite 提示图预览（SEGS）** | 预览每块实际会拿到的提示图 | torch |
 | **SAM2 + GroundingDINO 分区** | 文本提示 → 框（GroundingDINO）→ 掩码（SAM2）；内置兼容层，**transformers ≥ 5 也能跑** | `comfyui-sam2`、`transformers` |
@@ -99,6 +101,21 @@ Anima 有 28 → 40 → 52 三种深度（插入式加深，新块插在中间�
 Anima 2.9B / 3.8B 请用 **应用 LLLite（SEGS 分区 · 跨代重映射）**：它会把 LoRA 那一半的 block 索引一起改写；基础节点只原样加载，匹配不上会明确报错。
 
 > 姿态适配器权重**非商用**（CircleStone NC + NVIDIA Open Model），生成图不受限。
+
+## 普通模型上的姿态控制（不涉 SEGS）
+
+`应用 Control-LoRA（Anima 姿态）` 是同一内核的 `MODEL → MODEL` 版本，用于普通文生图 / 图生图：
+
+```
+应用 Control-LoRA（Anima 姿态）
+  model              ← LoraLoaderModelOnly(model, adapter, lora_strength)  （读 LoRA 那一半）
+  control_lora_name  = 同一个适配器文件                                     （本节点读 control_embedder.proj.*）
+  control_latent     ← VAEEncode(骨架图)                                    （或改用下面的 image + vae）
+  strength           = 1.0   （0 = 原样返回模型，不 clone、不挂 hook）
+  [可选] image + vae → 在这里编码，省掉 VAEEncode 节点
+```
+
+同一个文件两个节点——和官方一致，但**不需要装第三方包**，只要有权重文件（权重非商用，生成图不受限）。
 
 ### 什么文件能用
 

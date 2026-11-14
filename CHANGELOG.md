@@ -14,7 +14,7 @@ All notable changes to **ComfyUI-SegLLLite**. SemVer: new node = minor, bug fix 
   patch packing, token projection into `x_embedder` space, and the temporary forward-hook injector.
 - `compat/control_lora.py`: the adapter's LoRA half (block-index remapping included), applied with a
   hard error when zero keys match instead of silently sampling without it.
-- `LLLite Apply (SEGS, Remap)` remaps the control-LoRA's block indices too.
+''s block indices too.
 
 ### Changed
 - New inputs are appended after every previously published input, so existing workflows keep their

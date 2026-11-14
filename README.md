@@ -28,6 +28,8 @@ duck-typed (method names only), never imported, which keeps this package MIT.
 |---|---|---|
 | **LLLite Apply (SEGS)** | Attach a ControlNet-LLLite to every SEG; per-segment hint from `image` (the crop), `pose` (run a SEGS preprocessor on the crop), or `control_image` (crop from a global control image). Chainable. | torch (ships with ComfyUI) + Anima-LLLite |
 | **LLLite Apply (SEGS, Remap)** | Same as above **plus cross-generation block remapping**: a 28-layer LLLite can drive a 40-layer (Anima 2.9B) or 52-layer (3.8B) model | torch + Anima-LLLite |
+| **Control-LoRA Apply (SEGS)** | Attach a control-LoRA (pose adapter) to every SEG: the adapter's LoRA half + the zero-init control embedder. No LLLite involved — chain it after an LLLite node to run both. | torch + a control-LoRA file |
+| **Control-LoRA Apply (Anima)** | Same kernel for a whole **MODEL** (no SEGS): pose control on plain txt2img / img2img. Accepts an encoded `control_latent` or `image` + `vae`. `strength=0` returns the model untouched. | torch + a control-LoRA file |
 | **LLLite Clear (SEGS)** | Remove LLLite wrappers from a SEGS chain | torch |
 | **LLLite Hints (SEGS)** | Preview the hint each SEG would receive | torch |
 | **SAM2 + GroundingDINO Segment** | Text prompt → boxes (GroundingDINO) → masks (SAM2). Adds a runtime compatibility shim so it works on **transformers ≥ 5**. | `comfyui-sam2`, `transformers` |
@@ -111,6 +113,23 @@ as well. The plain node loads the LoRA half as-is and fails loudly when nothing 
 
 > The pose adapter weights are **non-commercial** (CircleStone NC + NVIDIA Open Model). Generated
 > images are unaffected; check the licence before commercial use.
+
+## Pose control on a normal model (no SEGS)
+
+`Control-LoRA Apply (Anima)` is the standalone `MODEL -> MODEL` version of the same kernel, for plain
+txt2img / img2img:
+
+```
+Control-LoRA Apply (Anima)
+  model                 ← LoraLoaderModelOnly(model, adapter, lora_strength)   (reads the LoRA half)
+  control_lora_name     = the same adapter file                                (this node reads control_embedder.proj.*)
+  control_latent        ← VAEEncode(skeleton)                                  (or use image + vae below)
+  strength              = 1.0   (0 = model returned untouched, no clone, no hook)
+  [optional] image + vae → encoded here, saving the VAEEncode node
+```
+
+Same file, two nodes -- exactly like upstream, but with no third-party package: only the weight file is
+needed (its licence is non-commercial; generated images are unaffected).
 
 ### Which files can be used here
 

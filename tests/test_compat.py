@@ -555,6 +555,184 @@ except ValueError:
     check("缺 vae 报错", True, True)
 check("开关关闭时不构建", ls.build_control_lora_config(False, "x", 1, 1, "same as lllite", None), None)
 
+# ------------------------------------------ 独立 Control-LoRA 节点 ------- #
+print("\n--- Control-LoRA 独立节点 ---")
+from comfyui_seglllite.seg_nodes import control_lora_segs as CLS  # noqa: E402
+import torch.nn as _nn  # noqa: E402
+
+check("独立节点已注册", "ControlLoRAApplySEGS" in CLS.NODE_CLASS_MAPPINGS, True)
+_it3 = CLS.ControlLoRAApplySEGS.INPUT_TYPES()
+check_true("独立节点参数齐全", all(k in _it3["required"] for k in (
+    "segs", "control_lora_name", "vae", "control_lora_strength",
+    "control_lora_lora_strength", "control_lora_hint", "preserve_wrapper",
+    "enable_remap", "target_model", "source_model")))
+
+
+class _FakeXE(_nn.Module):
+    def __init__(self, d=8):
+        super().__init__()
+        self.d = d
+
+    def forward(self, x):
+        b, c, t, h, w = x.shape
+        return _torch.zeros(b, t, h // 2, w // 2, self.d)
+
+
+class _FakeDit(_nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model_channels = 8
+        self.patch_spatial = 2
+        self.patch_temporal = 1
+        self.x_embedder = _FakeXE(8)
+
+
+class _FakePatcher:
+    """Mirrors the parts of ModelPatcher.clone() that matter here:
+
+    real clone() deep-copies ``model_options`` (where LLLite keeps its
+    ``model_function_wrapper``) and copies ``wrappers`` key by key, but it does
+    NOT copy ad-hoc python attributes."""
+
+    def __init__(self, dit):
+        self.model = type("M", (), {"diffusion_model": dit})()
+        self.wrappers = {}
+        self.model_options = {}
+
+    def clone(self):
+        n = _FakePatcher(self.model.diffusion_model)
+        n.wrappers = {k: {kk: list(vv) for kk, vv in v.items()} for k, v in self.wrappers.items()}
+        n.model_options = dict(self.model_options)
+        return n
+
+    def add_wrapper_with_key(self, t, k, w):
+        self.wrappers.setdefault(t, {}).setdefault(k, []).append(w)
+
+
+class _FakeVAE:
+    def encode(self, img):
+        return {"samples": _torch.ones(1, 16, 1, img.shape[1] // 8, img.shape[2] // 8)}
+
+
+_p3 = _os.path.join(_d, "ctrl8.safetensors")
+_save({
+    "diffusion_model.control_embedder.proj.weight": _torch.ones(8, 64),
+    "diffusion_model.control_embedder.proj.bias": _torch.zeros(8),
+    "diffusion_model.blocks.0.a.lora_A.weight": _torch.zeros(2, 2),
+}, _p3)
+
+_cfg = {
+    "path": _p3, "name": "ctrl8", "strength": 1.0, "lora_strength": 0.0,
+    "hint_source": "same as lllite", "vae": _FakeVAE(), "remap": False,
+    "target_choice": None, "source_choice": None,
+}
+_img = _torch.zeros(1, 64, 48, 3)
+_w = CLS.ControlLoRASEGSWrapper(_cfg)
+_w.apply([], None, _img)
+_pat = _FakePatcher(_FakeDit())
+_out, _pils = _w.doit_ipadapter(_pat)
+check("control wrapper 已挂到 diffusion_model", "diffusion_model" in _out.wrappers, True)
+_fn = _out.wrappers["diffusion_model"]["opnodes_animacontrol"][0]
+_x = _torch.zeros(1, 16, 1, 16, 12)
+_res = _fn(lambda: _out.model.diffusion_model.x_embedder(_x))
+check("x_embedder 输出被叠加 tokens", tuple(_res.shape), (1, 1, 8, 6, 8))
+check("tokens 非零（权重=1、latent=1）", bool(float(_res.abs().sum()) > 0), True)
+check("hook 已移除（不污染共享 DiT）",
+      len(_out.model.diffusion_model.x_embedder._forward_hooks), 0)
+
+_cfg0 = dict(_cfg)
+_cfg0["strength"] = 0.0
+_w0 = CLS.ControlLoRASEGSWrapper(_cfg0)
+_w0.apply([], None, _img)
+_o0, _ = _w0.doit_ipadapter(_FakePatcher(_FakeDit()))
+check("strength=0 → 完全不挂 wrapper", getattr(_o0, "wrappers", {}), {})
+
+# 直接串两个 wrapper（LLLite 节点 → Control-LoRA 节点）
+_cfg_chain = dict(_cfg)
+_wc = CLS.ControlLoRASEGSWrapper(_cfg_chain, prev_wrapper=None, preserve_wrapper=True)
+_wc.apply([], None, _img)
+_oc, _ = _wc.doit_ipadapter(_FakePatcher(_FakeDit()))
+check("链式：单层也能挂上", "diffusion_model" in _oc.wrappers, True)
+
+# ------------------------- LLLite + control-LoRA 同时挂载（关键组合）----- #
+print("\n--- LLLite + control-LoRA 同块共存 ---")
+
+
+def _stub_lllite(model, *a, **k):
+    """Stand-in for anima.apply_lllite: same slot a real LLLite occupies."""
+    patched = model.clone()
+    patched.model_options["model_function_wrapper"] = "lllite"
+    return patched
+
+
+_ll_cfg = dict(_cfg)
+_wl = ls.LLLiteSEGSWrapper(
+    lllite_name="fake.safetensors", strength=1.0, start_percent=0.0, end_percent=1.0,
+    hint_mode="image", apply_fn=_stub_lllite, control_lora=_ll_cfg,
+)
+_wl.apply([], None, _img)
+_ol, _ = _wl.doit_ipadapter(_FakePatcher(_FakeDit()))
+check("LLLite 槽位存活（clone 未丢 model_options）",
+      _ol.model_options.get("model_function_wrapper"), "lllite")
+check("control-LoRA wrapper 同时挂上", "diffusion_model" in _ol.wrappers, True)
+_fn2 = _ol.wrappers["diffusion_model"]["opnodes_animacontrol"][0]
+_res2 = _fn2(lambda: _ol.model.diffusion_model.x_embedder(_x))
+check("两个控制同时生效（tokens 已叠加）", bool(float(_res2.abs().sum()) > 0), True)
+
+# 关掉开关时只剩 LLLite
+_wl2 = ls.LLLiteSEGSWrapper(
+    lllite_name="fake.safetensors", strength=1.0, start_percent=0.0, end_percent=1.0,
+    hint_mode="image", apply_fn=_stub_lllite, control_lora=None,
+)
+_wl2.apply([], None, _img)
+_ol2, _ = _wl2.doit_ipadapter(_FakePatcher(_FakeDit()))
+check("开关关闭：只有 LLLite",
+      (_ol2.model_options.get("model_function_wrapper"), _ol2.wrappers), ("lllite", {}))
+
+# ------------------------------- Control-LoRA Apply (Anima) 独立模型节点 -- #
+print("\n--- Control-LoRA Apply (Anima) ---")
+from comfyui_seglllite.seg_nodes import control_lora_model as CLM  # noqa: E402
+
+check("模型节点已注册", "ControlLoRAApplyModel" in CLM.NODE_CLASS_MAPPINGS, True)
+_it4 = CLM.ControlLoRAApplyModel.INPUT_TYPES()
+check("required 参数", list(_it4["required"]), ["model", "control_lora_name", "strength"])
+check("optional 参数", list(_it4["optional"]), ["control_latent", "image", "vae"])
+check("输出是 MODEL", CLM.ControlLoRAApplyModel.RETURN_TYPES, ("MODEL",))
+
+_node = CLM.ControlLoRAApplyModel()
+_p0 = _FakePatcher(_FakeDit())
+(_out0,) = _node.run(_p0, "ctrl8", 0.0, control_latent=_torch.zeros(1, 16, 1, 8, 6))
+check("strength=0 原样返回（同一对象，未 clone）", _out0 is _p0, True)
+
+try:
+    _node.run(_FakePatcher(_FakeDit()), "ctrl8", 1.0)
+    check("缺 latent/image 应报错", "no error", "ValueError")
+except ValueError:
+    check("缺 latent/image 报错", True, True)
+
+try:
+    _node.run(_FakePatcher(_FakeDit()), "ctrl8", 1.0, image=_torch.zeros(1, 64, 48, 3))
+    check("image 缺 vae 应报错", "no error", "ValueError")
+except ValueError:
+    check("image 缺 vae 报错", True, True)
+
+_p1 = _FakePatcher(_FakeDit())
+(_out1,) = _node.run(_p1, _p3, 1.0, control_latent={"samples": _torch.ones(1, 16, 1, 8, 6)})
+check("control_latent(dict) 注入成功", "diffusion_model" in _out1.wrappers, True)
+_fn3 = _out1.wrappers["diffusion_model"]["opnodes_animacontrol"][0]
+_r3 = _fn3(lambda: _out1.model.diffusion_model.x_embedder(_x))
+check("模型节点 tokens 生效", bool(float(_r3.abs().sum()) > 0), True)
+
+_p4 = _FakePatcher(_FakeDit())
+(_out4,) = _node.run(_p4, _p3, 1.0, image=_torch.ones(1, 64, 48, 3), vae=_FakeVAE())
+check("image + vae 路径可用", "diffusion_model" in _out4.wrappers, True)
+
+try:
+    _node.run(_FakePatcher(_FakeDit()), _p2, 1.0, control_latent=_torch.zeros(1, 16, 1, 8, 6))
+    check("非 control-LoRA 文件应报错", "no error", "ValueError")
+except ValueError:
+    check("非 control-LoRA 文件报错", True, True)
+
 # --------------------------------------------------------------- summary ---- #
 print(f"\n{PASSED} passed, {len(FAILED)} failed")
 if FAILED:

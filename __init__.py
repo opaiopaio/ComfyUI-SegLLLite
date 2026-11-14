@@ -41,6 +41,30 @@ try:
 except Exception as e:  # pragma: no cover
     print(f"[SegLLLite] LLLite remap node disabled: {e}")
 
+# ---- Control-LoRA apply (MODEL -> MODEL, no SEGS) --------------------------- #
+try:
+    from .seg_nodes.control_lora_model import (
+        NODE_CLASS_MAPPINGS as _M,
+        NODE_DISPLAY_NAME_MAPPINGS as _MD,
+    )
+
+    NODE_CLASS_MAPPINGS.update(_M)
+    NODE_DISPLAY_NAME_MAPPINGS.update(_MD)
+except Exception as e:  # pragma: no cover
+    print(f"[SegLLLite] Control-LoRA model node disabled: {e}")
+
+# ---- standalone Control-LoRA apply node ------------------------------------ #
+try:
+    from .seg_nodes.control_lora_segs import (
+        NODE_CLASS_MAPPINGS as _C,
+        NODE_DISPLAY_NAME_MAPPINGS as _CD,
+    )
+
+    NODE_CLASS_MAPPINGS.update(_C)
+    NODE_DISPLAY_NAME_MAPPINGS.update(_CD)
+except Exception as e:  # pragma: no cover
+    print(f"[SegLLLite] Control-LoRA apply node disabled: {e}")
+
 # ---- SAM2 + GroundingDINO: only if comfyui-sam2 is installed -------------- #
 try:
     from .seg_nodes import sam2_dino as _sd

@@ -58,10 +58,13 @@ LANG = _detect_lang()
 _STRINGS = {
     "en": {
         "category": "OPNodes/Seg",
+        "category_control": "OPNodes/Control",
         "node.lllite_apply": "LLLite Apply (SEGS)",
         "node.lllite_clear": "LLLite Clear (SEGS)",
         "node.lllite_preview": "LLLite Hints (SEGS)",
         "node.lllite_apply_remap": "LLLite Apply (SEGS, Remap)",
+        "node.control_lora_apply": "Control-LoRA Apply (SEGS)",
+        "node.control_lora_apply_model": "Control-LoRA Apply (Anima)",
         "node.sam2dino": "SAM2 + GroundingDINO Segment",
         "node.sam2dino_loader": "GroundingDINO Loader",
         "desc.lllite_apply": (
@@ -69,6 +72,34 @@ _STRINGS = {
             "hint image (crop / pose / control image) before sampling."
         ),
         "desc.lllite_clear": "Remove LLLite wrappers from a SEGS chain (debug / reset).",
+        "desc.control_lora_apply_model": (
+            "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
+            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
+            "an image + vae. strength=0 returns the model untouched."
+        ),
+        "desc.control_lora_apply_model": (
+            "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
+            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+        ),
+        "desc.control_lora_apply": (
+            "Attach a Control-LoRA (pose adapter) to every segment: the adapter's LoRA half plus the "
+            "zero-init control embedder, so an SEGS detailer redraws the region while the skeleton "
+            "holds the pose. No LLLite involved -- chain it with an LLLite node to run both."
+        ),
+        "desc.control_lora_apply_model": (
+            "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
+            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
+            "an image + vae. strength=0 returns the model untouched."
+        ),
+        "desc.control_lora_apply_model": (
+            "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
+            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+        ),
+        "desc.control_lora_apply": (
+            "给每个分区挂一个 Control-LoRA（姿态适配器）：文件里的 LoRA 部分 + 零初始化 control "
+            "embedder，让 Detailer 重绘的同时由骨架锁住姿态。不含 LLLite；要和 LLLite 同时用就在后面"
+            "再串一个 LLLite 节点。"
+        ),
         "desc.lllite_apply_remap": (
             "Like LLLite Apply (SEGS), but rewrites the block indices inside the LLLite "
             "weights so a 28-layer LLLite can drive a 40-layer (Anima 2.9B) or 52-layer "
@@ -90,6 +121,8 @@ _STRINGS = {
         "tip.control_lora_lora_strength": "Strength of the file's LoRA half; 0 = pose embedder only.",
         "tip.control_lora_hint": "Where the pose skeleton comes from: SEGS preprocessor / global control image / the LLLite hint itself.",
         "tip.ctrl_vae": "Required by the control-LoRA backend to encode the skeleton into a control latent.",
+        "tip.ctrl_latent": "Already encoded control latent (e.g. VAEEncode of a skeleton). Takes precedence over image.",
+        "tip.ctrl_image": "Raw skeleton/control image; encoded with the vae input (saves a VAEEncode node).",
         "hint.no_segs": "no SEGS",
         "hint.seg_count": "{n} SEG",
         "err.no_anima_lllite": "ComfyUI-Anima-LLLite not found in custom_nodes.",
@@ -106,16 +139,23 @@ _STRINGS = {
         "err.ctrl_no_embedder": "{name} carries no control_embedder weights; it is not a control-LoRA.",
         "err.ctrl_needs_preprocessor": "control_lora_hint=segs_preprocessor requires an segs_preprocessor input.",
         "err.ctrl_control_image": "control_lora_hint=control_image requires a control_image input.",
+        "err.ctrl_need_source": "needs control_latent, or image + vae.",
+        "err.ctrl_image_needs_vae": "image needs a vae input to be encoded.",
+        "err.ctrl_need_source": "需要 control_latent，或者 image + vae。",
+        "err.ctrl_image_needs_vae": "接 image 时必须同时接 vae 才能编码。",
         "err.ctrl_lora_no_match": "control-LoRA: none of {n} LoRA keys matched this model (use the Remap node, or set control_lora_lora_strength=0).",
         "err.ctrl_dim_mismatch": "control embedder outputs {w} channels but this model has {m}.",
         "err.unknown_source": "cannot determine the generation of the weights file; set source_model manually",
     },
     "zh": {
         "category": "OPNodes/Seg",
+        "category_control": "OPNodes/Control",
         "node.lllite_apply": "应用 LLLite（SEGS 分区）",
         "node.lllite_clear": "清除 LLLite（SEGS）",
         "node.lllite_preview": "LLLite 提示图预览（SEGS）",
         "node.lllite_apply_remap": "应用 LLLite（SEGS 分区 · 跨代重映射）",
+        "node.control_lora_apply": "应用 Control-LoRA（SEGS 分区 · 姿态）",
+        "node.control_lora_apply_model": "应用 Control-LoRA（Anima 姿态）",
         "node.sam2dino": "SAM2 + GroundingDINO 分区",
         "node.sam2dino_loader": "GroundingDINO 加载器",
         "desc.lllite_apply": (
@@ -123,6 +163,34 @@ _STRINGS = {
             "（本块裁剪 / 姿态 / 控制图），解决全局图被压缩到小块导致的几何错位。"
         ),
         "desc.lllite_clear": "清除 SEGS 链上的 LLLite wrapper（调试 / 重置）。",
+        "desc.control_lora_apply_model": (
+            "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
+            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
+            "an image + vae. strength=0 returns the model untouched."
+        ),
+        "desc.control_lora_apply_model": (
+            "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
+            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+        ),
+        "desc.control_lora_apply": (
+            "Attach a Control-LoRA (pose adapter) to every segment: the adapter's LoRA half plus the "
+            "zero-init control embedder, so an SEGS detailer redraws the region while the skeleton "
+            "holds the pose. No LLLite involved -- chain it with an LLLite node to run both."
+        ),
+        "desc.control_lora_apply_model": (
+            "Attach a Control-LoRA (pose adapter) to a whole model: works on plain txt2img / "
+            "img2img, no third-party node required. Accepts an already encoded control_latent, or "
+            "an image + vae. strength=0 returns the model untouched."
+        ),
+        "desc.control_lora_apply_model": (
+            "给整个模型挂一个 Control-LoRA（姿态适配器），普通文生图/图生图也能用，无需第三方节点。"
+            "可直接接已编码的 control_latent，或接 image + vae 自动编码。strength=0 时模型原样返回。"
+        ),
+        "desc.control_lora_apply": (
+            "给每个分区挂一个 Control-LoRA（姿态适配器）：文件里的 LoRA 部分 + 零初始化 control "
+            "embedder，让 Detailer 重绘的同时由骨架锁住姿态。不含 LLLite；要和 LLLite 同时用就在后面"
+            "再串一个 LLLite 节点。"
+        ),
         "desc.lllite_apply_remap": (
             "与「应用 LLLite（SEGS 分区）」相同，但会改写 LLLite 权重里的 block 索引，"
             "让 28 层 LLLite 也能驱动 40 层（Anima 2.9B）或 52 层（3.8B）模型。仅支持老 → 新。"
@@ -143,6 +211,8 @@ _STRINGS = {
         "tip.control_lora_lora_strength": "文件里 LoRA 那部分的强度；0 = 只用姿态 embedder。",
         "tip.control_lora_hint": "姿态骨架来源：SEGS 预处理器 / 全局控制图 / 与 LLLite 同一个 hint。",
         "tip.ctrl_vae": "control-LoRA 后端需要它把骨架图编码成 control latent。",
+        "tip.ctrl_latent": "已编码的 control latent（例如骨架图过 VAEEncode）。优先于 image。",
+        "tip.ctrl_image": "原始骨架/控制图；用 vae 输入自动编码（省掉一个 VAEEncode）。",
         "hint.no_segs": "无 SEGS",
         "hint.seg_count": "{n} 块",
         "err.no_anima_lllite": "未在 custom_nodes 中找到 ComfyUI-Anima-LLLite。",
@@ -156,6 +226,10 @@ _STRINGS = {
         "err.ctrl_no_embedder": "「{name}」没有 control_embedder 权重，不是 Control-LoRA。",
         "err.ctrl_needs_preprocessor": "control_lora_hint=segs_preprocessor 需要连接 segs_preprocessor。",
         "err.ctrl_control_image": "control_lora_hint=control_image 需要连接 control_image。",
+        "err.ctrl_need_source": "needs control_latent, or image + vae.",
+        "err.ctrl_image_needs_vae": "image needs a vae input to be encoded.",
+        "err.ctrl_need_source": "需要 control_latent，或者 image + vae。",
+        "err.ctrl_image_needs_vae": "接 image 时必须同时接 vae 才能编码。",
         "err.ctrl_lora_no_match": "control-LoRA：{n} 个 LoRA 权重没有一个匹配当前模型（改用 Remap 节点并选对 target_model，或把 control_lora_lora_strength 设为 0）。",
         "err.ctrl_dim_mismatch": "control embedder 输出 {w} 通道，但当前模型是 {m}。",
         "err.unknown_source": "无法判断权重文件的代，请手动设置 source_model",

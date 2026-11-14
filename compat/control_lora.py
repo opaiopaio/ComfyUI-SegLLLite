@@ -1,4 +1,4 @@
-"""Control-LoRA support: the LoRA-delta half (plus block-index remapping).
+﻿"""Control-LoRA support: the LoRA-delta half (plus block-index remapping).
 
 The same adapter file that carries ``control_embedder.proj.*`` also carries a
 normal rank-16 LoRA (``diffusion_model.blocks.<n>.*.lora_A/lora_B`` and
@@ -13,6 +13,7 @@ LLLite remap (``anima_arch``).
 
 from __future__ import annotations
 
+import os
 import re
 
 import torch
@@ -70,6 +71,24 @@ def remap_lora_state_dict(sd: dict, mapping: dict) -> tuple:
                 continue
         out[key] = value
     return out, moved
+
+
+#: (path, mtime, size) -> state dict
+_ADAPTER_CACHE: dict = {}
+
+
+def load_adapter(path: str) -> dict:
+    """Full adapter state dict (LoRA half + control embedder), cached per file.
+
+    Per-SEG detailers call this once per segment; without the cache a 6-segment
+    run would re-read the same 70 MB file six times.
+    """
+    stamp = (path, os.path.getmtime(path), os.path.getsize(path))
+    sd = _ADAPTER_CACHE.get(stamp)
+    if sd is None:
+        sd = load_lora_file(path)
+        _ADAPTER_CACHE[stamp] = sd
+    return sd
 
 
 def load_lora_file(path: str) -> dict:

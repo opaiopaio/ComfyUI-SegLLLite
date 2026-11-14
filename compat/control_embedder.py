@@ -1,4 +1,4 @@
-"""Control-LoRA support: the ``control_embedder`` (pose signal) half.
+﻿"""Control-LoRA support: the ``control_embedder`` (pose signal) half.
 
 A *control-LoRA* file (Anima pose model) is one file with two halves:
 
@@ -184,6 +184,70 @@ def compute_from_latent(latent: torch.Tensor, weight, bias, **kwargs):
     if isinstance(latent, dict):
         latent = latent.get("samples", latent)
     return control_tokens(latent, weight, bias, **kwargs)
+
+
+def dit_of(model):
+    """The diffusion model inside a ModelPatcher, or a clear error."""
+    dit = getattr(getattr(model, "model", None), "diffusion_model", None)
+    if dit is None:
+        raise RuntimeError(f"{LOG} model has no diffusion_model; cannot inject control")
+    return dit
+
+
+def check_channels(model, weight) -> int:
+    """Validate the embedder output width against the model's channels."""
+    dit = dit_of(model)
+    model_channels = getattr(dit, "model_channels", weight.shape[0])
+    if int(weight.shape[0]) != int(model_channels):
+        raise RuntimeError(
+            f"{LOG} control embedder outputs {weight.shape[0]} channels but this model "
+            f"has {model_channels}"
+        )
+    return int(model_channels)
+
+
+def encode_image(vae, image):
+    """IMAGE (B,H,W,3|4) -> control latent (B,C,h,w)."""
+    if vae is None:
+        raise RuntimeError(f"{LOG} a vae is required to encode the control image")
+    if image.dim() == 3:
+        image = image.unsqueeze(0)
+    if image.shape[-1] == 4:  # drop alpha
+        image = image[..., :3]
+    out = vae.encode(image)
+    return out["samples"] if isinstance(out, dict) else out
+
+
+def token_provider(latent, weight, bias, *, spatial=2, temporal=1, strength=1.0):
+    """``x_embedder`` output -> control tokens, computed once per grid/device/dtype.
+
+    Shared by the SEGS wrappers and the standalone model node so the projection
+    maths and its caching live in exactly one place.
+    """
+    cache = {}
+
+    def provider(output):
+        key = (output.shape[2], output.shape[3], str(output.device), str(output.dtype))
+        tokens = cache.get(key)
+        if tokens is None:
+            tokens = compute_from_latent(
+                latent,
+                weight,
+                bias,
+                spatial=spatial,
+                temporal=temporal,
+                strength=strength,
+                target_grid=key[:2],
+            )
+            tokens = tokens.to(output.device, output.dtype)
+            cache[key] = tokens
+            print(
+                f"{LOG} control tokens {tuple(tokens.shape)} "
+                f"(latent {tuple(latent.shape)}, strength={float(strength):g})"
+            )
+        return tokens
+
+    return provider
 
 
 def attach(model, tokens_provider, key: str = "opnodes_animacontrol"):

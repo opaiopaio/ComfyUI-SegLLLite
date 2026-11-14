@@ -1,4 +1,4 @@
-"""LLLite ⇄ SEGS bridge.
+﻿"""LLLite ⇄ SEGS bridge.
 
 Why this exists
 ---------------
@@ -239,77 +239,83 @@ class LLLiteSEGSWrapper:
 
     # -- control-LoRA internals --------------------------------------------- #
     def _apply_ctrl_lora_deltas(self, model):
-        path = self.ctrl["path"]
-        sd = clora.load_adapter(path)
-        mapping = None
-        if self.ctrl.get("remap"):
-            source_blocks = clora.block_count_of_keys(sd.keys())
-            _, _, mapping = resolve_block_mapping(
-                model,
-                self.ctrl.get("target_choice"),
-                self.ctrl.get("source_choice"),
-                source_blocks,
-            )
-        patched, applied, candidates = clora.apply_lora_deltas(
-            model, sd, float(self.ctrl["lora_strength"]), mapping
-        )
-        if applied == 0:
-            raise RuntimeError(t("err.ctrl_lora_no_match", n=candidates))
-        return patched
+        return apply_ctrl_lora_deltas(model, self.ctrl)
 
     def _attach_control(self, model):
-        vae = self.ctrl.get("vae")
-        hint = self._pending_ctrl_hint
-        if vae is None:
-            raise ValueError(t("err.ctrl_needs_vae"))
-        if hint is None:
-            return model
-
-        weight, bias = cembedder.load_embedder(self.ctrl["path"])
-        dit = getattr(getattr(model, "model", None), "diffusion_model", None)
-        model_channels = getattr(dit, "model_channels", weight.shape[0])
-        if tuple(weight.shape) != (int(model_channels), weight.shape[1]):
-            raise ValueError(
-                t("err.ctrl_dim_mismatch", w=weight.shape[0], m=model_channels)
-            )
-
-        spatial, temporal = cembedder._patch_sizes(dit)
-        latent = _vae_encode(vae, hint)
-        strength = float(self.ctrl.get("strength", 1.0))
-        cache = {}
-
-        def provider(output):
-            key = (output.shape[2], output.shape[3], str(output.device), str(output.dtype))
-            tokens = cache.get(key)
-            if tokens is None:
-                tokens = cembedder.compute_from_latent(
-                    latent,
-                    weight,
-                    bias,
-                    spatial=spatial,
-                    temporal=temporal,
-                    strength=strength,
-                    target_grid=key[:2],
-                )
-                tokens = tokens.to(output.device, output.dtype)
-                cache[key] = tokens
-                print(
-                    f"{LOG} control-LoRA: tokens {tuple(tokens.shape)} "
-                    f"(latent {tuple(latent.shape)}, strength={strength:g})"
-                )
-            return tokens
-
-        return cembedder.attach(model, provider)
+        return attach_control_tokens(model, self.ctrl, self._pending_ctrl_hint)
 
 
 def _vae_encode(vae, image):
-    """IMAGE (B,H,W,C) -> control latent (B,C',h,w)."""
-    if image.dim() == 3:
-        image = image.unsqueeze(0)
-    if image.shape[-1] == 4:  # drop alpha
-        image = image[..., :3]
-    out = vae.encode(image)
-    return out["samples"] if isinstance(out, dict) else out
+    """Backwards-compatible alias for ``control_embedder.encode_image``."""
+    return cembedder.encode_image(vae, image)
+
+
+def apply_ctrl_lora_deltas(model, cfg):
+    """Patch the model with the adapter's LoRA half (block-remapped if asked)."""
+    sd = clora.load_adapter(cfg["path"])
+    mapping = None
+    if cfg.get("remap"):
+        source_blocks = clora.block_count_of_keys(sd.keys())
+        _, _, mapping = resolve_block_mapping(
+            model,
+            cfg.get("target_choice"),
+            cfg.get("source_choice"),
+            source_blocks,
+        )
+    patched, applied, candidates = clora.apply_lora_deltas(
+        model, sd, float(cfg["lora_strength"]), mapping
+    )
+    if applied == 0:
+        raise RuntimeError(t("err.ctrl_lora_no_match", n=candidates))
+    return patched
+
+
+def attach_control_tokens(model, cfg, hint):
+    """Add ``strength * control_embedder(vae(hint))`` to the patch-embed output."""
+    vae = cfg.get("vae")
+    if vae is None:
+        raise ValueError(t("err.ctrl_needs_vae"))
+    if hint is None:
+        return model
+
+    weight, bias = cembedder.load_embedder(cfg["path"])
+    try:
+        cembedder.check_channels(model, weight)
+    except RuntimeError as e:
+        raise ValueError(t("err.ctrl_dim_mismatch", w=weight.shape[0],
+                           m=int(getattr(cembedder.dit_of(model), "model_channels", 0)))) from e
+
+    dit = cembedder.dit_of(model)
+    spatial, temporal = cembedder._patch_sizes(dit)
+    latent = cembedder.encode_image(vae, hint)
+    provider = cembedder.token_provider(
+        latent, weight, bias, spatial=spatial, temporal=temporal,
+        strength=float(cfg.get("strength", 1.0)),
+    )
+    return cembedder.attach(model, provider)
+
+
+def resolve_ctrl_hint(cfg, image, mask, ctrl_image, preprocessor, fallback):
+    """Pick the skeleton image for the control-LoRA backend."""
+    source = cfg.get("hint_source")
+    if source == "control_image":
+        if ctrl_image is None:
+            raise ValueError(t("err.ctrl_control_image"))
+        return ctrl_image
+    if source == "segs_preprocessor":
+        if preprocessor is None:
+            raise ValueError(t("err.ctrl_needs_preprocessor"))
+        return _run_preprocessor(preprocessor, image, mask)
+    return fallback
+
+
+def apply_control_lora(model, cfg, hint):
+    """LoRA half (optional) + pose embedder, in that order."""
+    if float(cfg.get("lora_strength", 0.0)) > 0.0:
+        model = apply_ctrl_lora_deltas(model, cfg)
+    if float(cfg.get("strength", 0.0)) != 0.0 and hint is not None:
+        model = attach_control_tokens(model, cfg, hint)
+    return model
 
 
 def _run_preprocessor(preprocessor, image, mask):
