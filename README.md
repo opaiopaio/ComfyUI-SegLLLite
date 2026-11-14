@@ -138,12 +138,24 @@ The `control_lora_name` dropdown lists **only files that actually contain `contr
 (a header-only probe, cached by mtime; ~5 ms for 40 LoRAs). If the probe cannot run it falls back to
 the full LoRA list and the node raises its explicit "not a control-LoRA" error.
 
+### Interaction with ComfyUI-Anima-LLLite
+
+To rewrite block indices before a load, `LLLite Apply (SEGS, Remap)` temporarily swaps
+`load_lllite_weights` **on the Anima-LLLite module object** for the duration of a single apply call and
+restores it in a `finally` block. Nothing on disk is modified and no other node sees the swap outside
+that call. Everything else about that package is used as-is.
+
 ### Which files can be used here
 
 Only **ControlNet-LLLite** files (`.safetensors` carrying `lllite.*` metadata, keys like
 `lllite_dit_blocks_<N>_*`). Plain LoRA, traditional ControlNet, and **control-LoRA** files are
 rejected with an explicit error — an Anima pose model built as a control-LoRA (`control_embedder.*`
 keys) needs its own `AnimaControlApply` node and cannot be driven from here.
+
+## Examples
+
+`examples/quickstart_segs.json` is the minimal graph, and `examples/README.md` lists the external
+nodes it needs (Impact's `MaskToSEGS` + ComfyUI-Anima-LLLite).
 
 ## Compatibility
 

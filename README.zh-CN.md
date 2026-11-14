@@ -123,11 +123,22 @@ Anima 2.9B / 3.8B 请用 **应用 LLLite（SEGS 分区 · 跨代重映射）**�
 `control_lora_name` 下拉**只列真正含 `control_embedder.*` 的文件**（只读 header，按 mtime 缓存；
 40 个 LoRA 约 5 ms）。探测失败时回退到全部 LoRA，由节点给出明确的「不是 control-LoRA」错误。
 
+### 与 ComfyUI-Anima-LLLite 的交互方式
+
+为了在加载前改写 block 索引，`应用 LLLite（SEGS 分区 · 跨代重映射）` 会在**单次 apply 期间**临时替换
+Anima-LLLite 模块对象上的 `load_lllite_weights`，并在 `finally` 里还原。不改磁盘上的任何文件，该调用之外
+其它节点看不到这次替换，包内其它功能按原样使用对方的实现。
+
 ### 什么文件能用
 
 **只支持 ControlNet-LLLite**（带 `lllite.*` 元数据、key 形如 `lllite_dit_blocks_<N>_*` 的 safetensors）。
 普通 LoRA、传统 ControlNet、以及 **control-LoRA** 都会被明确拒绝——例如用 `control_embedder.*` 实现的
 Anima 姿态模型，它需要官方 `AnimaControlApply` 节点，不能从这里驱动。
+
+## 示例
+
+`examples/quickstart_segs.json` 是最小可跑图，`examples/README.md` 列出它依赖的外部节点
+（Impact 的 `MaskToSEGS` + ComfyUI-Anima-LLLite）。
 
 ## 兼容矩阵
 

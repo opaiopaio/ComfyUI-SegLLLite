@@ -1,0 +1,180 @@
+{
+  "last_node_id": 3,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "MaskToSEGS",
+      "pos": [
+        80,
+        200
+      ],
+      "size": [
+        300,
+        180
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MaskToSEGS"
+      },
+      "widgets_values": [
+        false,
+        3.0,
+        false,
+        10,
+        false
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LLLiteApplySEGS",
+      "pos": [
+        420,
+        200
+      ],
+      "size": [
+        380,
+        420
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "link": 1
+        },
+        {
+          "name": "segs_preprocessor",
+          "type": "SEGS_PREPROCESSOR",
+          "link": null
+        },
+        {
+          "name": "control_image",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LLLiteApplySEGS"
+      },
+      "widgets_values": [
+        "Anima\\修复animaLllite_006-inpainting.safetensors",
+        1.0,
+        0.0,
+        1.0,
+        "image",
+        true,
+        false,
+        "None",
+        1.2,
+        1.0,
+        "segs_preprocessor",
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "id": 3,
+      "type": "LLLiteHintPreviewSEGS",
+      "pos": [
+        840,
+        200
+      ],
+      "size": [
+        300,
+        150
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "link": 2
+        },
+        {
+          "name": "segs_preprocessor",
+          "type": "SEGS_PREPROCESSOR",
+          "link": null
+        },
+        {
+          "name": "control_image",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "hints",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LLLiteHintPreviewSEGS"
+      },
+      "widgets_values": [
+        "image"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "SEGS"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "SEGS"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {}
+  },
+  "version": 0.4
+}
