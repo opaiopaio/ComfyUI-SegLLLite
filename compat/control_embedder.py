@@ -378,5 +378,23 @@ def attach(model, tokens_provider, key: str = "seglllite_control"):
             handle.remove()
 
     patched = model.clone()
+    # Same key = same control slot. Replacing instead of appending makes a chained
+    # second control node (or a re-executed one) idempotent: appending would fire
+    # TWO injections and double the token offset, which shows up as grain.
+    existing = []
+    if hasattr(patched, "get_wrappers"):
+        try:
+            existing = list(patched.get_wrappers("diffusion_model", key) or [])
+        except Exception:
+            existing = []
+    if existing:
+        print(
+            f"{LOG} replacing {len(existing)} existing '{key}' wrapper(s) "
+            "(the previous injection would otherwise be applied twice)"
+        )
+        try:
+            patched.remove_wrappers_with_key("diffusion_model", key)
+        except Exception:
+            pass
     patched.add_wrapper_with_key("diffusion_model", key, wrapper)
     return patched
